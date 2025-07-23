@@ -1,1 +1,11 @@
 \babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Introducción}{2}{section.1}%
+\contentsline {section}{\numberline {2}Esquema Tecnológico}{2}{section.2}%
+\contentsline {section}{\numberline {3}Detalle de Módulos}{2}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Microcontrolador: Blue Pill STM32F103C8T6}{2}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Drivers A4988}{3}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Motores paso a paso}{3}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}RAMPS 1.4}{3}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Fines de carrera mecánicos}{3}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Anexos}{3}{section.4}%
+\contentsline {section}{\numberline {5}Referencias}{3}{section.5}%

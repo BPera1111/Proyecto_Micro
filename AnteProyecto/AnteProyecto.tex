@@ -1,18 +1,102 @@
-\documentclass{article}
+% \documentclass{article}
 
-\usepackage{graphicx} % Paquete para incluir imágenes
-\usepackage[utf8]{inputenc} % Para caracteres especiales
-\usepackage[spanish]{babel} % Para idioma español
-\usepackage{xcolor} % Para colores
-\usepackage{amsmath} % Para ecuaciones
-\usepackage{amssymb} % Para símbolos matemáticos adicionales (incluye \therefore)
-\usepackage{fancyhdr} % Para encabezados y pies de página
-%\usepackage{geometry} % Para ajustar márgenes
-\usepackage{caption} % Para usar \captionof fuera de float
-\usepackage{float}
-\usepackage{multirow}
-\usepackage{enumitem}
-\usepackage{lastpage}% Para el número de la última página
+% \usepackage{graphicx} % Paquete para incluir imágenes
+% \usepackage[utf8]{inputenc} % Para caracteres especiales
+% \usepackage[spanish]\begin{itemize}
+%   \item \textbf{Mapa de pines Blue Pill STM32F103C8T6}: Ver referencia [6]
+%   \item \textbf{Esquema RAMPS 1.4}: Ver referencia [7]
+% \end{itemize}el} % Para idioma español
+% \usepackage{xcolor} % Para colores
+% \usepackage{amsmath} % Para ecuaciones
+% \usepackage{amssymb} % Para símbolos matemáticos adicionales (incluye \therefore)
+% \usepackage{fancyhdr} % Para encabezados y pies de página
+% %\usepackage{geometry} % Para ajustar márgenes
+% \usepackage{caption} % Para usar \captionof fuera de float
+% \usepackage{float}
+% \usepackage{multirow}
+% \usepackage{enumitem}
+% \usepackage{lastpage}% Para el número de la última página
+% \usepackage{hyperref}
+% \hypersetup{
+%     colorlinks=true,
+%     linkcolor=black,
+%     citecolor=black,
+%     urlcolor=black,
+%     pdfborder={0 0 0}
+% }
+
+% % Configuración de márgenes
+% \usepackage[a4paper,
+%   top=1.9cm,
+%   bottom=3.67cm,
+%   left=1.9cm,
+%   right=1.32cm
+% ]{geometry}
+
+
+% % Configuración de encabezados y pies de página
+% \pagestyle{fancy}
+% \fancyhf{} % Limpia encabezados y pies de página
+
+% % Encabezado
+% \fancyhead[L]{\scriptsize UNCuyo - Ing. Mecatrónica\\Mendoza - Argentina}
+% \fancyhead[C]{\scriptsize\textbf{Espacio Curricular:  \textbf{Microcontroladores y Electrónica de Potencia (Año 2024)}\\
+% \textbf{PROYECTO GLOBAL INTEGRADOR}}}
+% \fancyhead[R]{\scriptsize Peña Lautaro, Peralta Bruno\\19/07/2025}
+
+% % Pie de página
+% \fancyfoot[C]{Pág. \thepage\ de \pageref{LastPage}}
+
+% \setlength{\headheight}{16.9528pt}  % importante si usás fancyhdr con varios renglones
+% \setlength{\headsep}{0.5cm}    % separación entre cabecera y texto
+
+% % \fancyhead[L]{Automática y Máquinas Eléctricas} % Encabezado izquierdo
+% % \fancyhead[C]{2025} % Encabezado central
+% % \fancyhead[R]{Peña Lautaro, Peralta Bruno} % Encabezado derecho
+% % \fancyfoot[C]{\thepage} % Número de página centrado en el pie de página
+
+% \begin{document}
+
+% % Portada
+% \begin{titlepage}
+%     \centering
+
+%     % Logo
+%     \includegraphics[width=0.8\textwidth]{img/fing.jpeg}\par\vspace{1cm}
+%     \vspace{2cm}
+%     % Título
+%     {\Huge \textbf{Proyecto Global Integrador:}\\[0.5cm]
+%     \textbf{CNC Laser de 3 Ejes}\vspace{2cm}}
+%     % \textbf{Motor Sincrónico de Imanes Permanentes}\par}\vspace{2cm}
+    
+%     % Autores
+%     {\Large Peña Lautaro - 13099\\
+%     Peralta Bruno - 13220\par}\vspace{0.5cm}
+    
+%     % Profesor titular
+%     {Año 2024\par}
+% \end{titlepage}
+
+% % Índice
+% \newpage
+% \tableofcontents
+% \newpage
+
+
+
+
+
+% \end{document}
+
+\documentclass[12pt]{article}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+\usepackage{url}
 \usepackage{hyperref}
 \hypersetup{
     colorlinks=true,
@@ -21,14 +105,15 @@
     urlcolor=black,
     pdfborder={0 0 0}
 }
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\geometry{a4paper, margin=1.3cm}
 
-% Configuración de márgenes
-\usepackage[a4paper,
-  top=1.9cm,
-  bottom=3.67cm,
-  left=1.9cm,
-  right=1.32cm
-]{geometry}
+\title{Anteproyecto: Impresora 3D Modificada para Grabado Láser CNC de PCB}
+\author{Nombre del estudiante}
+\date{\today}
+
 
 
 % Configuración de encabezados y pies de página
@@ -37,7 +122,7 @@
 
 % Encabezado
 \fancyhead[L]{\scriptsize UNCuyo - Ing. Mecatrónica\\Mendoza - Argentina}
-\fancyhead[C]{\scriptsize\textbf{Espacio Curricular:  \textbf{Microcontroladores y Electrónica de Potencia (Año 2024)}\\
+\fancyhead[C]{\scriptsize\textbf{\textbf{Microcontroladores y Electrónica de Potencia (Año 2024)}\\
 \textbf{PROYECTO GLOBAL INTEGRADOR}}}
 \fancyhead[R]{\scriptsize Peña Lautaro, Peralta Bruno\\19/07/2025}
 
@@ -79,8 +164,94 @@
 \tableofcontents
 \newpage
 
+\section{Introducción}
 
+El presente proyecto consiste en la modificación de una impresora 3D antigua con el fin de reutilizar su estructura y componentes para desarrollar una máquina CNC de grabado láser destinada a la creación rápida de placas de circuito impreso (PCB). Esta herramienta permitirá fabricar prototipos de forma ágil para proyectos de electrónica y robótica.
 
+La motivación principal radica en el desafío de aprovechar un equipo en desuso y otorgarle una nueva funcionalidad, aportando una solución económica y eficiente para la etapa de prototipado de circuitos. El sistema combina conocimientos de control de motores, programación de microcontroladores, comunicación serial y ejecución de comandos G-code.
 
+\section{Esquema Tecnológico}
+
+\begin{center}
+\begin{tikzpicture}[node distance=3cm, auto]
+  % Bloques principales
+  \node[draw, rectangle, rounded corners, fill=blue!10] (pc) {PC con G-code};
+  \node[draw, rectangle, rounded corners, fill=green!10, below of=pc, yshift=-0.5cm] (bluepill) {Blue Pill STM32F103C8T6};
+  \node[draw, rectangle, rounded corners, fill=yellow!20, below of=bluepill, yshift=-0.5cm] (ramp) {RAMPS 1.4};
+  \node[draw, rectangle, rounded corners, fill=orange!10, below of=ramp, xshift=-5.5cm, yshift=-0.5cm] (driverX) {Driver A4988 - Eje X};
+  \node[draw, rectangle, rounded corners, fill=orange!10, below of=ramp, xshift=0cm, yshift=-0.5cm] (driverY) {Driver A4988 - Eje Y};
+  \node[draw, rectangle, rounded corners, fill=orange!10, below of=ramp, xshift=5.5cm, yshift=-0.5cm] (driverZ) {Driver A4988 - Eje Z};
+  \node[draw, rectangle, rounded corners, fill=red!10, below of=driverX, yshift=-0.5cm] (motorX) {M.PAP NEMA 17HS3430};
+  \node[draw, rectangle, rounded corners, fill=red!10, below of=driverY, yshift=-0.5cm] (motorY) {M.PAP NEMA 17HS8401};
+  \node[draw, rectangle, rounded corners, fill=red!10, below of=driverZ, yshift=-0.5cm] (motorZ) {M.PAP NEMA 17HS8401};
+  \node[draw, rectangle, rounded corners, fill=gray!20, right of=pc, xshift=5cm] (serial) {Monitor Serial};
+  \node[draw, rectangle, rounded corners, fill=cyan!20, right of=ramp, xshift=6cm] (endstops) {Fines de carrera};
+
+  % Conexiones
+  \draw[-{Stealth}] (pc) -- (bluepill) node[midway, left] {USB Serial};
+  \draw[-{Stealth}] (bluepill) -- (ramp) node[midway, left] {Interfaz};
+  \draw[-{Stealth}] (ramp) -- (driverX);
+  \draw[-{Stealth}] (ramp) -- (driverY);
+  \draw[-{Stealth}] (ramp) -- (driverZ);
+  \draw[-{Stealth}] (driverX) -- (motorX);
+  \draw[-{Stealth}] (driverY) -- (motorY);
+  \draw[-{Stealth}] (driverZ) -- (motorZ);
+  \draw[-{Stealth}, dashed] (ramp) -- (endstops) node[midway, above] {Sensores};
+  \draw[-{Stealth}, dashed] (pc) -- (serial);
+\end{tikzpicture}
+\end{center}
+
+\section{Detalle de Módulos}
+
+\subsection{Microcontrolador: Blue Pill STM32F103C8T6}
+Microcontrolador de 32 bits basado en ARM Cortex-M3, con 72 MHz, 64KB Flash y 20KB RAM. Opera a 3.3V, pero varios pines son tolerantes a 5V. Se programa mediante STM32CubeIDE. Más información en referencia \hyperref[ref1]{[1]}.
+
+\subsection{Drivers A4988}
+Módulos controladores de motores paso a paso, permiten controlar corriente y micropasos. Son compatibles con motores NEMA y reciben señales STEP/DIR desde el microcontrolador. Referencia \hyperref[ref2]{[2]}.
+
+\subsection{Motores paso a paso}
+\begin{itemize}
+  \item \textbf{17HS3430}: torque nominal 26 Ncm, corriente 1.2A/fase, 1.8° por paso. Ideal para eje X.
+  \item \textbf{17HS8401}: torque 52 Ncm, corriente 1.8A/fase. Usados en ejes Y y Z.
+\end{itemize}
+Hojas de datos disponibles en referencias \hyperref[ref3]{[3]} y \hyperref[ref4]{[4]}.
+
+\subsection{RAMPS 1.4}
+Placa de expansión diseñada para impresoras 3D, permite conectar drivers A4988, motores, finales de carrera y fuentes de alimentación. Es compatible eléctricamente con el Arduino Mega, pero se adapta a la Blue Pill mediante cableado personalizado. Referencia \hyperref[ref5]{[5]}.
+
+\subsection{Fines de carrera mecánicos}
+Interruptores tipo “normalmente cerrados” (NC) conectados a los pines PA12, PA15 y PA11 del microcontrolador. Se usan para detectar los límites de cada eje y realizar homing.
+
+\section{Anexos}
+
+\begin{itemize}
+  \item \textbf{Mapa de pines Blue Pill STM32F103C8T6}: Ver referencia \hyperref[ref6]{[6]}
+  \item \textbf{Esquema RAMPS 1.4}: Ver referencia \hyperref[ref7]{[7]}
+\end{itemize}
+
+\section{Referencias}
+
+\begin{enumerate}
+  \item \label{ref1} STMicroelectronics. STM32F103C8 Datasheet. \\
+  \url{https://www.st.com/en/microcontrollers-microprocessors/stm32f103c8.html}
+  
+  \item \label{ref2} Pololu Corporation. A4988 Stepper Motor Driver Carrier. \\
+  \url{https://www.pololu.com/product/1182}
+  
+  \item \label{ref3} OMC StepperOnline. Motor NEMA 17HS3430 Datasheet. \\
+  \url{https://www.alldatasheet.es/datasheet-pdf/download/1137270/MOTIONKING/17HS3430.html}
+  
+  \item \label{ref4} OMC StepperOnline. Motor NEMA 17HS8401 Datasheet. \\
+  \url{https://www.alldatasheet.es/datasheet-pdf/download/1137270/MOTIONKING/17HS3430.html}
+  
+  \item \label{ref5} RepRap Community. RAMPS 1.4 Documentation. \\
+  \url{https://reprap.org/wiki/RAMPS_1.4}
+  
+  \item \label{ref6} Arduino STM32 Community. Blue Pill Pinout Reference. \\
+  \url{https://github.com/rogerclarkmelbourne/Arduino_STM32/wiki/Blue-Pill-Pinout}
+  
+  \item \label{ref7} RepRap Community. RAMPS 1.4 Schematic. \\
+  \url{https://reprap.org/mediawiki/images/c/c4/RAMPS1.4schematic.png}
+\end{enumerate}
 
 \end{document}
