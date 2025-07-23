@@ -1,0 +1,86 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Paquete para incluir imágenes
+\usepackage[utf8]{inputenc} % Para caracteres especiales
+\usepackage[spanish]{babel} % Para idioma español
+\usepackage{xcolor} % Para colores
+\usepackage{amsmath} % Para ecuaciones
+\usepackage{amssymb} % Para símbolos matemáticos adicionales (incluye \therefore)
+\usepackage{fancyhdr} % Para encabezados y pies de página
+%\usepackage{geometry} % Para ajustar márgenes
+\usepackage{caption} % Para usar \captionof fuera de float
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{lastpage}% Para el número de la última página
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=black,
+    pdfborder={0 0 0}
+}
+
+% Configuración de márgenes
+\usepackage[a4paper,
+  top=1.9cm,
+  bottom=3.67cm,
+  left=1.9cm,
+  right=1.32cm
+]{geometry}
+
+
+% Configuración de encabezados y pies de página
+\pagestyle{fancy}
+\fancyhf{} % Limpia encabezados y pies de página
+
+% Encabezado
+\fancyhead[L]{\scriptsize UNCuyo - Ing. Mecatrónica\\Mendoza - Argentina}
+\fancyhead[C]{\scriptsize\textbf{Espacio Curricular:  \textbf{Microcontroladores y Electrónica de Potencia (Año 2024)}\\
+\textbf{PROYECTO GLOBAL INTEGRADOR}}}
+\fancyhead[R]{\scriptsize Peña Lautaro, Peralta Bruno\\19/07/2025}
+
+% Pie de página
+\fancyfoot[C]{Pág. \thepage\ de \pageref{LastPage}}
+
+\setlength{\headheight}{16.9528pt}  % importante si usás fancyhdr con varios renglones
+\setlength{\headsep}{0.5cm}    % separación entre cabecera y texto
+
+% \fancyhead[L]{Automática y Máquinas Eléctricas} % Encabezado izquierdo
+% \fancyhead[C]{2025} % Encabezado central
+% \fancyhead[R]{Peña Lautaro, Peralta Bruno} % Encabezado derecho
+% \fancyfoot[C]{\thepage} % Número de página centrado en el pie de página
+
+\begin{document}
+
+% Portada
+\begin{titlepage}
+    \centering
+
+    % Logo
+    \includegraphics[width=0.8\textwidth]{img/fing.jpeg}\par\vspace{1cm}
+    \vspace{2cm}
+    % Título
+    {\Huge \textbf{Proyecto Global Integrador:}\\[0.5cm]
+    \textbf{CNC Laser de 3 Ejes}\vspace{2cm}}
+    % \textbf{Motor Sincrónico de Imanes Permanentes}\par}\vspace{2cm}
+    
+    % Autores
+    {\Large Peña Lautaro - 13099\\
+    Peralta Bruno - 13220\par}\vspace{0.5cm}
+    
+    % Profesor titular
+    {Año 2024\par}
+\end{titlepage}
+
+% Índice
+\newpage
+\tableofcontents
+\newpage
+
+
+
+
+
+\end{document}

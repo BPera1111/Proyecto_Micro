@@ -1,0 +1,579 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2025 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "usb_device.h"
+#include "usbd_cdc_if.h"
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <stdint.h>
+#include "usbd_cdc_if.h"
+//#include "usart.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define STEPS_PER_REV 2000
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart2;
+
+/* USER CODE BEGIN PV */
+extern UART_HandleTypeDef huart1;
+char inputBuffer[100];
+int bufferIndex = 0;
+bool commandComplete = false;
+int32_t currentX = 0, currentY = 0, currentZ = 0;
+
+// Buffer para recibir comandos por USB CDC
+char usbBuffer[100];
+int usbBufferIndex = 0;
+bool usbCommandComplete = false;
+
+// Definiciones de pines equivalentes a Arduino
+#define X_STEP_PIN    GPIO_PIN_6
+#define X_DIR_PIN     GPIO_PIN_7
+#define X_EN_PIN      GPIO_PIN_8
+#define X_MIN_PIN     GPIO_PIN_12
+
+#define Y_STEP_PIN    GPIO_PIN_9
+#define Y_DIR_PIN     GPIO_PIN_3
+#define Y_EN_PIN      GPIO_PIN_4
+#define Y_MIN_PIN     GPIO_PIN_13
+
+#define Z_STEP_PIN    GPIO_PIN_8
+#define Z_DIR_PIN     GPIO_PIN_9
+#define Z_EN_PIN      GPIO_PIN_10
+#define Z_MIN_PIN     GPIO_PIN_14
+
+#define LED_HORARIO     GPIO_PIN_0
+#define LED_ANTIHORARIO GPIO_PIN_1
+
+const uint16_t STEP_DELAY_US = 800;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+//static void MX_USART2_UART_Init(void);
+/* USER CODE BEGIN PFP */
+void loop(void);
+void setup(void);
+void delay_us(uint32_t us);
+void moveAxes(float x, float y, float z);
+float extractParam(const char* command, char param);
+void processGcode(const char* command);
+void readUSBCommands(void);
+void X_move(int32_t steps, bool dir);
+void Y_move(int32_t steps, bool dir);
+void Z_move(int32_t steps, bool dir);
+void X_stepOnce(void);
+void Y_stepOnce(void);
+void Z_stepOnce(void);
+float extractParameter(const char* command, char param);
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_USB_DEVICE_Init();  // Inicia USB CDC
+
+  // Inicialización similar al setup() de Arduino
+  setup();
+
+  // Envío inicial
+  uint8_t mensaje[] = "G-code listo\r\n";
+  CDC_Transmit_FS(mensaje, sizeof(mensaje) - 1);
+
+  while (1)
+  {
+    // Equivalente al loop() de Arduino
+    loop();
+    
+    // Pequeña pausa para evitar saturar el procesador
+    HAL_Delay(10);
+  }
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
+  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+//static void MX_USART2_UART_Init(void)
+//{
+//
+//  /* USER CODE BEGIN USART2_Init 0 */
+//
+//  /* USER CODE END USART2_Init 0 */
+//
+//  /* USER CODE BEGIN USART2_Init 1 */
+//
+//  /* USER CODE END USART2_Init 1 */
+//  huart2.Instance = USART2;
+//  huart2.Init.BaudRate = 9600;
+//  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+//  huart2.Init.StopBits = UART_STOPBITS_1;
+//  huart2.Init.Parity = UART_PARITY_NONE;
+//  huart2.Init.Mode = UART_MODE_TX_RX;
+//  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+//  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+//  if (HAL_UART_Init(&huart2) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
+//  /* USER CODE BEGIN USART2_Init 2 */
+//
+//  /* USER CODE END USART2_Init 2 */
+//
+//}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_6
+                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : PB0 PB3 PB4 PB6
+                           PB7 PB8 PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_6
+                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB12 PB13 PB14 */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA8 PA9 PA10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
+void delay_us(uint32_t us) {
+    uint32_t cycles = (SystemCoreClock / 1000000L) * us;
+    uint32_t start = DWT->CYCCNT;
+    while ((DWT->CYCCNT - start) < cycles);
+}
+
+void X_stepOnce(void) {
+    HAL_GPIO_WritePin(GPIOB, X_STEP_PIN, GPIO_PIN_SET);
+    delay_us(2);
+    HAL_GPIO_WritePin(GPIOB, X_STEP_PIN, GPIO_PIN_RESET);
+}
+
+void Y_stepOnce(void) {
+    HAL_GPIO_WritePin(GPIOB, Y_STEP_PIN, GPIO_PIN_SET);
+    delay_us(2);
+    HAL_GPIO_WritePin(GPIOB, Y_STEP_PIN, GPIO_PIN_RESET);
+}
+
+void Z_stepOnce(void) {
+    HAL_GPIO_WritePin(GPIOA, Z_STEP_PIN, GPIO_PIN_SET);
+    delay_us(2);
+    HAL_GPIO_WritePin(GPIOA, Z_STEP_PIN, GPIO_PIN_RESET);
+}
+
+void X_move(int32_t steps, bool dir) {
+    // Configura dirección
+    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    // Enciende el LED correspondiente al sentido
+    if (dir) {
+        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+    } else {
+        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
+    }
+
+    // Ejecuta los pasos
+    for (int32_t i = 0; i < steps; i++) {
+        X_stepOnce();
+        delay_us(STEP_DELAY_US);
+    }
+
+    // Apaga ambos LEDs al terminar
+    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+}
+
+void Y_move(int32_t steps, bool dir) {
+    // Configura dirección
+    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    // Enciende el LED correspondiente al sentido
+    if (dir) {
+        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+    } else {
+        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
+    }
+
+    // Ejecuta los pasos
+    for (int32_t i = 0; i < steps; i++) {
+        Y_stepOnce();
+        delay_us(STEP_DELAY_US);
+    }
+
+    // Apaga ambos LEDs al terminar
+    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+}
+
+void Z_move(int32_t steps, bool dir) {
+    // Configura dirección
+    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+    // Enciende el LED correspondiente al sentido
+    if (dir) {
+        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+    } else {
+        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
+    }
+
+    // Ejecuta los pasos
+    for (int32_t i = 0; i < steps; i++) {
+        Z_stepOnce();
+        delay_us(STEP_DELAY_US);
+    }
+
+    // Apaga ambos LEDs al terminar
+    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+}
+
+void readUSBCommands(void) {
+    // Esta función se implementará con callback de USB CDC
+    // Por ahora vacía, se procesará en el callback
+}
+
+float extractParameter(const char* command, char param) {
+    char* ptr = strchr(command, param);
+    if (ptr) {
+        return atof(ptr + 1);
+    }
+    return NAN; // Not a Number
+}
+
+void moveAxes(float x, float y, float z) {
+    // Convertir a pasos
+    int32_t xSteps = 0;
+    int32_t ySteps = 0;
+    int32_t zSteps = 0;
+    bool xDir = true;
+    bool yDir = true;
+    bool zDir = true;
+    
+    if (!isnan(x)) {
+        // Calcular pasos relativos para el eje X
+        int32_t targetX = x * (STEPS_PER_REV / 360.0); // Convertir a pasos
+        xSteps = targetX - currentX;
+        xDir = (xSteps >= 0);
+        xSteps = abs(xSteps);
+        currentX = targetX; // Actualizar posición actual
+    }
+    
+    if (!isnan(y)) {
+        // Calcular pasos relativos para el eje Y
+        int32_t targetY = y * (STEPS_PER_REV / 360.0); // Convertir a pasos
+        ySteps = targetY - currentY;
+        yDir = (ySteps >= 0);
+        ySteps = abs(ySteps);
+        currentY = targetY; // Actualizar posición actual
+    }
+    
+    if (!isnan(z)) {
+        // Calcular pasos relativos para el eje Z
+        int32_t targetZ = z * (STEPS_PER_REV / 360.0); // Convertir a pasos
+        zSteps = targetZ - currentZ;
+        zDir = (zSteps >= 0);
+        zSteps = abs(zSteps);
+        currentZ = targetZ; // Actualizar posición actual
+    }
+    
+    // Mover los motores
+    if (xSteps > 0) {
+        // Enviar información por USB CDC
+        char msg[50];
+        sprintf(msg, "Moviendo X: %ld pasos, dir: %s\r\n", xSteps, xDir ? "horario" : "antihorario");
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        X_move(xSteps, xDir);
+    }
+    
+    if (ySteps > 0) {
+        // Enviar información por USB CDC
+        char msg[50];
+        sprintf(msg, "Moviendo Y: %ld pasos, dir: %s\r\n", ySteps, yDir ? "horario" : "antihorario");
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        Y_move(ySteps, yDir);
+    }
+    
+    if (zSteps > 0) {
+        // Enviar información por USB CDC
+        char msg[50];
+        sprintf(msg, "Moviendo Z: %ld pasos, dir: %s\r\n", zSteps, zDir ? "horario" : "antihorario");
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        Z_move(zSteps, zDir);
+    }
+}
+
+void processGcode(const char* command) {
+    // Enviar comando procesado
+    char msg[100];
+    sprintf(msg, "Procesando: %s\r\n", command);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Procesar comando G0 o G1
+    if (strncmp(command, "G0", 2) == 0 || strncmp(command, "G1", 2) == 0) {
+        // Procesar movimiento
+        float xPos = extractParameter(command, 'X');
+        float yPos = extractParameter(command, 'Y');
+        float zPos = extractParameter(command, 'Z');
+        
+        // Mover los ejes
+        moveAxes(xPos, yPos, zPos);
+        
+        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
+    } else {
+        CDC_Transmit_FS((uint8_t*)"Comando no reconocido\r\n", 23);
+    }
+}
+
+void loop(void) {
+    // Verificar fines de carrera
+    if (HAL_GPIO_ReadPin(GPIOB, X_MIN_PIN) == GPIO_PIN_RESET) {
+        CDC_Transmit_FS((uint8_t*)"Fin de carrera X activado\r\n", 27);
+    }
+    if (HAL_GPIO_ReadPin(GPIOB, Y_MIN_PIN) == GPIO_PIN_RESET) {
+        CDC_Transmit_FS((uint8_t*)"Fin de carrera Y activado\r\n", 27);
+    }
+    if (HAL_GPIO_ReadPin(GPIOB, Z_MIN_PIN) == GPIO_PIN_RESET) {
+        CDC_Transmit_FS((uint8_t*)"Fin de carrera Z activado\r\n", 27);
+    }
+
+    // Procesar comandos USB CDC
+    if (usbCommandComplete) {
+        processGcode(usbBuffer);
+        usbBufferIndex = 0;
+        usbCommandComplete = false;
+        memset(usbBuffer, 0, sizeof(usbBuffer));
+    }
+}
+
+void setup(void) {
+    // Activar DWT para microsegundos
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    
+    // Habilitar drivers de motores (EN pins en LOW)
+    HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_RESET);  // Habilita driver X
+    HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_RESET);  // Habilita driver Y
+    HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_RESET);  // Habilita driver Z
+
+    // Asegurar que LEDs estén apagados al inicio
+    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+}
+
+// Callback para manejar datos recibidos por USB CDC
+void USB_CDC_RxCallback(uint8_t* Buf, uint32_t Len) {
+    for (uint32_t i = 0; i < Len; i++) {
+        char receivedChar = Buf[i];
+        
+        if (receivedChar == '\n') {
+            usbBuffer[usbBufferIndex] = '\0';
+            usbCommandComplete = true;
+            return;
+        }
+        
+        if (receivedChar != '\r' && usbBufferIndex < sizeof(usbBuffer) - 1) {
+            usbBuffer[usbBufferIndex++] = receivedChar;
+        }
+    }
+}
+
+// Función compatible con el código original (mantener para compatibilidad)
+float extractParam(const char* command, char param) {
+    return extractParameter(command, param);
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART2) {
+        char received;
+        HAL_UART_Receive_IT(&huart1, (uint8_t*)&received, 1);
+        if (received == '\n') {
+            inputBuffer[bufferIndex] = '\0';
+            commandComplete = true;
+            bufferIndex = 0;
+        } else if (received != '\r' && bufferIndex < sizeof(inputBuffer) - 1) {
+            inputBuffer[bufferIndex++] = received;
+        }
+    }
+}
+
+void moveAxis(int32_t steps, bool dir, GPIO_TypeDef* GPIOx, uint16_t dirPin, void (*stepFn)(void)) {
+    HAL_GPIO_WritePin(GPIOx, dirPin, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, dir ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    for (int32_t i = 0; i < steps; i++) {
+        stepFn();
+        delay_us(800);
+    }
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
+}
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+#ifdef USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
