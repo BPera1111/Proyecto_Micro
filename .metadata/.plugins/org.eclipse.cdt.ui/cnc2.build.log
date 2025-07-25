@@ -1,0 +1,10 @@
+17:57:18 **** Incremental Build of configuration Debug for project cnc2 ****
+make -j8 all 
+arm-none-eabi-size   cnc2.elf 
+   text	   data	    bss	    dec	    hex	filename
+  44328	    856	   6392	  51576	   c978	cnc2.elf
+Finished building: default.size.stdout
+ 
+
+17:57:19 Build Finished. 0 errors, 0 warnings. (took 1s.271ms)
+

@@ -1,0 +1,47 @@
+[0.000] initConfigParams():  Configuration flags start
+[0.000] initConfigParams():   halt                           false
+[0.000] initConfigParams():   config-file                    ""
+[0.000] initConfigParams():   persistent                     false
+[0.000] initConfigParams():  +log-file                       "C:\Users\bruno\STM32CubeIDE\Proyecto_Micro\CNC\.settings\logggg.txt"
+[0.000] initConfigParams():  +log-level                      31
+[0.000] initConfigParams():  +port-number                    61234
+[0.000] initConfigParams():  +verbose                        true
+[0.000] initConfigParams():   refresh-delay                  15
+[0.000] initConfigParams():  +verify                         true
+[0.000] initConfigParams():  +swd                            true
+[0.000] initConfigParams():   swo-port                       61234
+[0.000] initConfigParams():   cpu-clock                      8000000
+[0.000] initConfigParams():   swo-clock-div                  128
+[0.000] initConfigParams():   initialize-reset               false
+[0.000] initConfigParams():   debuggers                      false
+[0.000] initConfigParams():   serial-number                  ""
+[0.000] initConfigParams():  +apid                           0
+[0.001] initConfigParams():  +attach                         true
+[0.001] initConfigParams():   shared                         false
+[0.001] initConfigParams():   erase-all                      false
+[0.001] initConfigParams():   memory-map                     ""
+[0.001] initConfigParams():   ext-memory-loaders             false
+[0.001] initConfigParams():   extload                        ""
+[0.001] initConfigParams():  +stm32cubeprogrammer-path       "C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_1.1.0.201910081157\tools\bin"
+[0.001] initConfigParams():   temp-path                      ""
+[0.001] initConfigParams():   preserve-temps                 false
+[0.001] initConfigParams():   frequency                      -1
+[0.001] initConfigParams():   licenses                       false
+[0.001] initConfigParams():   ignore-rest                    false
+[0.001] initConfigParams():   version                        false
+[0.001] initConfigParams():   help                           false
+[0.001] initConfigParams():  Configuration flags end
+[0.001] init():  STMicroelectronics ST-LINK GDB server. Version 5.3.2
+Copyright (c) 2019, STMicroelectronics. All rights reserved.
+[0.013] Device_Initialise():  Target connection mode: Attach
+[0.018] reset_hw_wtchpt_module():  Hardware watchpoint supported by the target 
+[0.023] Device_Initialise():  COM frequency = 4000 kHz
+[0.023] Device_Initialise():  ST-LINK Firmware version : V2J46S7
+[0.023] Device_Initialise():  Device ID: 0x410
+[0.023] Device_Initialise():  PC: 0x51000253
+[0.024] Device_GetStatus():  ST-LINK device status: RUN_MODE
+[0.024] Device_Initialise():  ST-LINK detects target voltage = 3.28 V
+[0.026] readJEP106ID():  Vendor = 0x3B 
+[0.026] initServerContext():  
+Error in initializing ST-LINK device.
+Reason: [0.026] initServerContext():  ST-LINK: Could not verify ST device! Abort connection.
