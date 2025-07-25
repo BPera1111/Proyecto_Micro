@@ -29,6 +29,7 @@
 #include <math.h>
 #include <stdint.h>
 #include "usbd_cdc_if.h"
+#include "stm32f1xx_hal.h"
 //#include "usart.h"
 /* USER CODE END Includes */
 
@@ -40,6 +41,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define STEPS_PER_REV 2000
+#define DEBUG_MESSAGES 1  // Cambiar a 0 para desactivar mensajes de debug
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -60,7 +62,7 @@ int32_t currentX = 0, currentY = 0, currentZ = 0;
 // Buffer para recibir comandos por USB CDC
 char usbBuffer[100];
 int usbBufferIndex = 0;
-bool usbCommandComplete = false;
+bool usbCommandComplete = true;
 
 // Definiciones de pines equivalentes a Arduino
 #define X_STEP_PIN    GPIO_PIN_6
@@ -133,8 +135,8 @@ int main(void)
     // Equivalente al loop() de Arduino
     loop();
     
-    // Pequeña pausa para evitar saturar el procesador
-    HAL_Delay(10);
+    // Pausa optimizada para reducir carga del procesador y terminal
+    HAL_Delay(50);  // 50ms = 20Hz, reduce carga significativamente
   }
 }
 
@@ -463,22 +465,64 @@ void processGcode(const char* command) {
 }
 
 void loop(void) {
-    // Verificar fines de carrera
-    if (HAL_GPIO_ReadPin(GPIOB, X_MIN_PIN) == GPIO_PIN_RESET) {
-        CDC_Transmit_FS((uint8_t*)"Fin de carrera X activado\r\n", 27);
-    }
-    if (HAL_GPIO_ReadPin(GPIOB, Y_MIN_PIN) == GPIO_PIN_RESET) {
-        CDC_Transmit_FS((uint8_t*)"Fin de carrera Y activado\r\n", 27);
-    }
-    if (HAL_GPIO_ReadPin(GPIOB, Z_MIN_PIN) == GPIO_PIN_RESET) {
-        CDC_Transmit_FS((uint8_t*)"Fin de carrera Z activado\r\n", 27);
+    // Variables estáticas para controlar el spam de mensajes
+    static uint32_t lastEndstopCheck = 0;
+    static bool endstopXWasPressed = false; 
+    static bool endstopYWasPressed = false;
+    static bool endstopZWasPressed = false;
+    
+    uint32_t currentTime = HAL_GetTick();
+    
+    // Verificar fines de carrera solo cada 10ms para evitar spam
+    if (currentTime - lastEndstopCheck > 10) {
+        lastEndstopCheck = currentTime;
+        
+        // Fin de carrera X - solo mensaje cuando cambia de estado
+        bool endstopX = (HAL_GPIO_ReadPin(GPIOB, X_MIN_PIN) == GPIO_PIN_RESET);
+        if (endstopX && !endstopXWasPressed) {
+            CDC_Transmit_FS((uint8_t*)"Fin de carrera X activado\r\n", 27);
+            // Opcional: detener motor X o hacer homing
+            // X_move(100, false); // Retroceder 100 pasos
+            endstopXWasPressed = true;
+        } else if (!endstopX && endstopXWasPressed) {
+            CDC_Transmit_FS((uint8_t*)"Fin de carrera X desactivado\r\n", 30);
+            endstopXWasPressed = false;
+        }
+        
+        // Fin de carrera Y
+        bool endstopY = (HAL_GPIO_ReadPin(GPIOB, Y_MIN_PIN) == GPIO_PIN_RESET);
+        if (endstopY && !endstopYWasPressed) {
+            CDC_Transmit_FS((uint8_t*)"Fin de carrera Y activado\r\n", 27);
+            endstopYWasPressed = true;
+        } else if (!endstopY && endstopYWasPressed) {
+            CDC_Transmit_FS((uint8_t*)"Fin de carrera Y desactivado\r\n", 30);
+            endstopYWasPressed = false;
+        }
+        
+        // Fin de carrera Z
+        bool endstopZ = (HAL_GPIO_ReadPin(GPIOB, Z_MIN_PIN) == GPIO_PIN_RESET);
+        if (endstopZ && !endstopZWasPressed) {
+            CDC_Transmit_FS((uint8_t*)"Fin de carrera Z activado\r\n", 27);
+            endstopZWasPressed = true;
+        } else if (!endstopZ && endstopZWasPressed) {
+            CDC_Transmit_FS((uint8_t*)"Fin de carrera Z desactivado\r\n", 30);
+            endstopZWasPressed = false;
+        }
     }
 
-    // Procesar comandos USB CDC
+    // Procesar comandos USB CDC - SOLO cuando hay un comando completo
     if (usbCommandComplete) {
+        #if DEBUG_MESSAGES
+        // Debug: confirmar que llegó el comando (buffer más grande para evitar warning)
+        char debugMsg[120];
+        sprintf(debugMsg, ">>> [%s]\r\n", usbBuffer);
+        CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+        #endif
+        
         processGcode(usbBuffer);
+        
+        // IMPORTANTE: Resetear todo después de procesar
         usbBufferIndex = 0;
-        usbCommandComplete = false;
         memset(usbBuffer, 0, sizeof(usbBuffer));
     }
 }
@@ -498,53 +542,19 @@ void setup(void) {
     HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
 }
 
-// Callback para manejar datos recibidos por USB CDC
-void USB_CDC_RxCallback(uint8_t* Buf, uint32_t Len) {
-    for (uint32_t i = 0; i < Len; i++) {
-        char receivedChar = Buf[i];
-        
-        if (receivedChar == '\n') {
-            usbBuffer[usbBufferIndex] = '\0';
-            usbCommandComplete = true;
-            return;
-        }
-        
-        if (receivedChar != '\r' && usbBufferIndex < sizeof(usbBuffer) - 1) {
-            usbBuffer[usbBufferIndex++] = receivedChar;
-        }
-    }
-}
+// Nota: El callback USB CDC está implementado en usbd_cdc_if.c
+// La función CDC_Receive_FS maneja la recepción de datos
 
 // Función compatible con el código original (mantener para compatibilidad)
 float extractParam(const char* command, char param) {
     return extractParameter(command, param);
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == USART2) {
-        char received;
-        HAL_UART_Receive_IT(&huart1, (uint8_t*)&received, 1);
-        if (received == '\n') {
-            inputBuffer[bufferIndex] = '\0';
-            commandComplete = true;
-            bufferIndex = 0;
-        } else if (received != '\r' && bufferIndex < sizeof(inputBuffer) - 1) {
-            inputBuffer[bufferIndex++] = received;
-        }
-    }
-}
+// Función de compatibilidad UART (no se usa en este proyecto)
+// El proyecto usa USB CDC para comunicación
 
-void moveAxis(int32_t steps, bool dir, GPIO_TypeDef* GPIOx, uint16_t dirPin, void (*stepFn)(void)) {
-    HAL_GPIO_WritePin(GPIOx, dirPin, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, dir ? GPIO_PIN_RESET : GPIO_PIN_SET);
-    for (int32_t i = 0; i < steps; i++) {
-        stepFn();
-        delay_us(800);
-    }
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
-}
+// Función auxiliar para movimiento genérico (no utilizada actualmente)
+// Se mantiene para compatibilidad futura
 /* USER CODE END 4 */
 
 /**
