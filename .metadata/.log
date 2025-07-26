@@ -23968,3 +23968,11 @@ java.io.FileNotFoundException: C:\Users\bruno\STM32CubeIDE\Proyecto_Micro\cnc2\c
 
 !ENTRY org.eclipse.cdt.core 1 0 2025-07-25 20:05:34.165
 !MESSAGE Indexed 'CNC' (30 sources, 159 headers) in 4.97 sec: 12,221 declarations; 47,616 references; 2 unresolved inclusions; 36 syntax errors; 188 unresolved names (0.31%)
+
+!ENTRY org.eclipse.ui.ide 4 4 2025-07-26 05:21:36.741
+!MESSAGE Problems saving workspace
+
+!ENTRY org.eclipse.ui.ide 2 1 2025-07-26 05:21:36.752
+!MESSAGE Problems occurred while trying to save the state of the workbench.
+!SUBENTRY 1 org.eclipse.core.resources 2 234 2025-07-26 05:21:36.752
+!MESSAGE The project description file (.project) for 'cnc2' was missing.  This file contains important information about the project.  A new project description file has been created, but some information about the project may have been lost.
