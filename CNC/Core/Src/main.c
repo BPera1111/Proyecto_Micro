@@ -41,7 +41,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define STEPS_PER_REV 2000
-#define DEBUG_MESSAGES 1  // Cambiar a 0 para desactivar mensajes de debug
+#define DEBUG_MESSAGES 0  // Cambiar a 0 para desactivar mensajes de debug
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -105,6 +105,8 @@ void X_stepOnce(void);
 void Y_stepOnce(void);
 void Z_stepOnce(void);
 float extractParameter(const char* command, char param);
+void performHoming(void);
+bool isEndstopPressed(char axis);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -144,8 +146,7 @@ int main(void)
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void)
-{
+void SystemClock_Config(void){
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
@@ -345,7 +346,7 @@ void Y_move(int32_t steps, bool dir) {
 
 void Z_move(int32_t steps, bool dir) {
     // Configura dirección
-    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dir ? GPIO_PIN_RESET : GPIO_PIN_SET);
 
     // Enciende el LED correspondiente al sentido
     if (dir) {
@@ -444,11 +445,11 @@ void moveAxes(float x, float y, float z) {
 
 void processGcode(const char* command) {
     // Enviar comando procesado
-    char msg[100];
-    sprintf(msg, "Procesando: %s\r\n", command);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    // char msg[100];
+    // sprintf(msg, "Procesando: %s\r\n", command);
+    // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     
-    // Procesar comando G0 o G1
+    // Procesar comando G0 o G1 (movimientos)
     if (strncmp(command, "G0", 2) == 0 || strncmp(command, "G1", 2) == 0) {
         // Procesar movimiento
         float xPos = extractParameter(command, 'X');
@@ -459,7 +460,14 @@ void processGcode(const char* command) {
         moveAxes(xPos, yPos, zPos);
         
         CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
-    } else {
+    }
+    // Procesar comando G28 (homing)
+    else if (strncmp(command, "G28", 3) == 0) {
+        CDC_Transmit_FS((uint8_t*)"Ejecutando homing...\r\n", 22);
+        performHoming();
+        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
+    }
+    else {
         CDC_Transmit_FS((uint8_t*)"Comando no reconocido\r\n", 23);
     }
 }
@@ -555,6 +563,129 @@ float extractParam(const char* command, char param) {
 
 // Función auxiliar para movimiento genérico (no utilizada actualmente)
 // Se mantiene para compatibilidad futura
+
+// Función para verificar si un final de carrera está presionado
+bool isEndstopPressed(char axis) {
+    switch(axis) {
+        case 'X':
+            return (HAL_GPIO_ReadPin(GPIOB, X_MIN_PIN) == GPIO_PIN_RESET);
+        case 'Y':
+            return (HAL_GPIO_ReadPin(GPIOB, Y_MIN_PIN) == GPIO_PIN_RESET);
+        case 'Z':
+            return (HAL_GPIO_ReadPin(GPIOB, Z_MIN_PIN) == GPIO_PIN_RESET);
+        default:
+            return false;
+    }
+}
+
+// Función de homing para todos los ejes
+void performHoming(void) {
+    char msg[80];
+    
+    // Enviar mensaje de inicio de homing
+    CDC_Transmit_FS((uint8_t*)"Iniciando secuencia de homingg...\r\n", 34);
+    
+    // FASE 1: Movimiento rápido hacia los finales de carrera
+    sprintf(msg, "Fase 1: Buscando finales de carrera...\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Homing del eje X
+    sprintf(msg, "Homing eje X...\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+
+    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
+    // Mover hacia el final de carrera X (dirección negativa)
+    while (!isEndstopPressed('X')) {
+        X_stepOnce();
+        delay_us(STEP_DELAY_US);
+        //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
+        // HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
+    }
+    
+    // Retroceder un poco del final de carrera X
+    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_SET); // Dirección positiva
+    for (int i = 0; i < 10; i++) { // Retroceder 50 pasos
+        if (!isEndstopPressed('X')) break; // Salir cuando se libere el endstop
+        X_stepOnce();
+        delay_us(STEP_DELAY_US);
+    }
+    
+    // FASE 2: Movimiento lento de precisión para X
+    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa nuevamente
+    while (!isEndstopPressed('X')) {
+        X_stepOnce();
+        delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
+    }
+    
+    currentX = 0; // Establecer posición home
+    sprintf(msg, "Eje XX en posición home\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Homing del eje Y
+    sprintf(msg, "Homing eje Y...\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Mover hacia el final de carrera Y (dirección negativa)
+    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
+    while (!isEndstopPressed('Y')) {
+        Y_stepOnce();
+        delay_us(STEP_DELAY_US);
+        //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
+    }
+    
+    // Retroceder un poco del final de carrera Y
+    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_SET); // Dirección positiva
+    for (int i = 0; i < 10; i++) { // Retroceder 50 pasos
+        if (!isEndstopPressed('Y')) break;
+        Y_stepOnce();
+        delay_us(STEP_DELAY_US);
+    }
+    
+    // FASE 2: Movimiento lento de precisión para Y
+    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa nuevamente
+    while (!isEndstopPressed('Y')) {
+        Y_stepOnce();
+        delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
+    }
+    
+    currentY = 0; // Establecer posición home
+    sprintf(msg, "Eje Y en posición home\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Homing del eje Z
+    sprintf(msg, "Homing eje Z...\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Mover hacia el final de carrera Z (dirección negativa)
+    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
+    while (!isEndstopPressed('Z')) {
+        Z_stepOnce();
+        delay_us(STEP_DELAY_US);
+        //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
+    }
+    
+    // Retroceder un poco del final de carrera Z
+    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_RESET); // Dirección positiva
+    for (int i = 0; i < 10; i++) { // Retroceder 50 pasos
+        if (!isEndstopPressed('Z')) break;
+        Z_stepOnce();
+        delay_us(STEP_DELAY_US);
+    }
+    
+    // FASE 2: Movimiento lento de precisión para Z
+    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa nuevamente
+    while (!isEndstopPressed('Z')) {
+        Z_stepOnce();
+        delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
+    }
+    
+    currentZ = 0; // Establecer posición home
+    sprintf(msg, "Eje Z en posición home\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Mensaje final
+    CDC_Transmit_FS((uint8_t*)"Homing completado. Todos los ejes en posición home.\r\n", 54);
+}
 /* USER CODE END 4 */
 
 /**

@@ -1104,3 +1104,4 @@
 2025-07-25 17:56:20,309 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
 2025-07-25 17:56:20,310 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
 2025-07-25 17:56:20,312 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] 	at java.lang.Thread.run(Thread.java:748)
+2025-07-25 19:50:56,269 [INFO] BlockDiagram:1827 - stop enableDisableButtons

@@ -1,21 +1,17 @@
-17:56:13 **** Incremental Build of configuration Debug for project cnc2 ****
+20:55:59 **** Incremental Build of configuration Debug for project CNC ****
 make -j8 all 
-arm-none-eabi-size   cnc2.elf 
+arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I../USB_DEVICE/App -I../USB_DEVICE/Target -I../Middlewares/ST/STM32_USB_Device_Library/Core/Inc -I../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/main.o"
+arm-none-eabi-gcc -o "CNC.elf" @"objects.list"   -mcpu=cortex-m3 -T"C:\Users\bruno\STM32CubeIDE\Proyecto_Micro\CNC\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CNC.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: CNC.elf
+ 
+arm-none-eabi-size  CNC.elf 
+arm-none-eabi-objdump -h -S CNC.elf  > "CNC.list"
+arm-none-eabi-objcopy  -O ihex CNC.elf  "CNC.hex"
    text	   data	    bss	    dec	    hex	filename
-  44328	    856	   6392	  51576	   c978	cnc2.elf
+  50200	    840	   6576	  57616	   e110	CNC.elf
 Finished building: default.size.stdout
  
-17:56:17 **** Incremental Build of configuration Debug for project cnc2 ****
-make -j8 all 
-arm-none-eabi-size   cnc2.elf 
-   text	   data	    bss	    dec	    hex	filename
-  44328	    856	   6392	  51576	   c978	cnc2.elf
-Finished building: default.size.stdout
+Finished building: CNC.hex
  
-17:57:18 **** Incremental Build of configuration Debug for project cnc2 ****
-make -j8 all 
-arm-none-eabi-size   cnc2.elf 
-   text	   data	    bss	    dec	    hex	filename
-  44328	    856	   6392	  51576	   c978	cnc2.elf
-Finished building: default.size.stdout
+Finished building: CNC.list
  
