@@ -67,7 +67,7 @@ int32_t currentX = 0, currentY = 0, currentZ = 0;
 // Buffer para recibir comandos por USB CDC
 char usbBuffer[100];
 int usbBufferIndex = 0;
-bool usbCommandComplete = true;
+bool usbCommandComplete = false;  // Cambiar a false para evitar procesamiento inicial
 
 // Definiciones de pines equivalentes a Arduino
 #define X_STEP_PIN    GPIO_PIN_6
@@ -137,6 +137,12 @@ int main(void)
   // Envío inicial
   uint8_t mensaje[] = "G-code listo\r\n";
   CDC_Transmit_FS(mensaje, sizeof(mensaje) - 1);
+  
+  #if DEBUG_MESSAGES
+  // Mensaje adicional de debug
+  uint8_t debug_msg[] = "Sistema iniciado - Esperando comandos...\r\n";
+  CDC_Transmit_FS(debug_msg, sizeof(debug_msg) - 1);
+  #endif
 
   while (1)
   {
@@ -504,7 +510,22 @@ void loop(void) {
     static bool endstopZWasPressed = false;
     
     uint32_t currentTime = HAL_GetTick();
+
+    #if DEBUG_MESSAGES
+    // Heartbeat para confirmar que el sistema está funcionando
+    static uint32_t lastHeartbeat = 0;
+    // Debug: mostrar tiempo actual
+    char debugMsg[50];
+    sprintf(debugMsg, "[DEBUG] Tiempo actual: %lu\r\n", currentTime);
+    CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
     
+
+    // Heartbeat cada 5 segundos para confirmar que está vivo
+    if (currentTime - lastHeartbeat > 5000) {
+        lastHeartbeat = currentTime;
+        CDC_Transmit_FS((uint8_t*)"[HEARTBEAT] Sistema activo\r\n", 29);
+    }
+    #endif
     // Verificar fines de carrera solo cada 10ms para evitar spam
     if (currentTime - lastEndstopCheck > 10) {
         lastEndstopCheck = currentTime;
@@ -545,17 +566,37 @@ void loop(void) {
     // Procesar comandos USB CDC - SOLO cuando hay un comando completo
     if (usbCommandComplete) {
         #if DEBUG_MESSAGES
-        // Debug: confirmar que llegó el comando (buffer más grande para evitar warning)
-        char debugMsg[120];
-        sprintf(debugMsg, ">>> [%s]\r\n", usbBuffer);
-        CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+        // Debug: mostrar estado de variables
+        char debugStatus[200];  // Buffer más grande para evitar overflow
+        sprintf(debugStatus, "[DEBUG] usbCommandComplete=true, bufferIndex=%d, buffer=[%s]\r\n", 
+                usbBufferIndex, usbBuffer);
+        CDC_Transmit_FS((uint8_t*)debugStatus, strlen(debugStatus));
         #endif
         
-        processGcode(usbBuffer);
+        // Verificar que el buffer no esté vacío y contenga algo más que espacios
+        bool hasValidCommand = false;
+        for (int i = 0; i < usbBufferIndex; i++) {
+            if (usbBuffer[i] != ' ' && usbBuffer[i] != '\t' && usbBuffer[i] != '\r' && usbBuffer[i] != '\n') {
+                hasValidCommand = true;
+                break;
+            }
+        }
         
-        // IMPORTANTE: Resetear todo después de procesar
+        if (hasValidCommand && usbBufferIndex > 0) {
+            #if DEBUG_MESSAGES
+            // Debug: confirmar que llegó el comando (buffer más grande para evitar warning)
+            char debugMsg[120];
+            sprintf(debugMsg, ">>> [%s]\r\n", usbBuffer);
+            CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+            #endif
+            
+            processGcode(usbBuffer);
+        }
+        
+        // IMPORTANTE: Resetear todo después de procesar (o intentar procesar)
         usbBufferIndex = 0;
         memset(usbBuffer, 0, sizeof(usbBuffer));
+        usbCommandComplete = false;  // Asegurar que se resetee correctamente
     }
 }
 

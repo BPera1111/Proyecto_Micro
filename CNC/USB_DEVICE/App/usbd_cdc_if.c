@@ -264,14 +264,19 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
+  // Debug: confirmar que se reciben datos
+  // char debugMsg[50];
+  // sprintf(debugMsg, "[RX] Recibidos %lu bytes\r\n", *Len);
+  // CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+  
   // Procesar datos recibidos
   for (uint32_t i = 0; i < *Len; i++) {
     char receivedChar = Buf[i];
     
     if (receivedChar == '\n') {
-      usbBuffer[usbBufferIndex] = '\0';
-      usbCommandComplete = true;
-      usbBufferIndex = 0;
+      usbBuffer[usbBufferIndex] = '\0';  // Terminar string
+      usbCommandComplete = true;         // Marcar comando completo
+      // NO resetear usbBufferIndex aquí - se hace en main.c después de procesar
       break;
     }
     
