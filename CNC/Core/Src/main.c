@@ -40,8 +40,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define STEPS_PER_REV 2000
 #define DEBUG_MESSAGES 0  // Cambiar a 0 para desactivar mensajes de debug
+
+// Configuración real de la máquina (valores calibrados)
+#define STEPS_PER_MM_X 79      // Pasos por mm para eje X
+#define STEPS_PER_MM_Y 79      // Pasos por mm para eje Y
+#define STEPS_PER_MM_Z 3930    // Pasos por mm para eje Z
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -107,6 +112,7 @@ void Z_stepOnce(void);
 float extractParameter(const char* command, char param);
 void performHoming(void);
 bool isEndstopPressed(char axis);
+void showConfiguration(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -382,7 +388,7 @@ float extractParameter(const char* command, char param) {
 }
 
 void moveAxes(float x, float y, float z) {
-    // Convertir a pasos
+    // Convertir de milímetros a pasos usando valores específicos por eje
     int32_t xSteps = 0;
     int32_t ySteps = 0;
     int32_t zSteps = 0;
@@ -391,8 +397,8 @@ void moveAxes(float x, float y, float z) {
     bool zDir = true;
     
     if (!isnan(x)) {
-        // Calcular pasos relativos para el eje X
-        int32_t targetX = x * (STEPS_PER_REV / 360.0); // Convertir a pasos
+        // Calcular pasos relativos para el eje X (mm → pasos)
+        int32_t targetX = x * STEPS_PER_MM_X; // Convertir mm a pasos (79 steps/mm)
         xSteps = targetX - currentX;
         xDir = (xSteps >= 0);
         xSteps = abs(xSteps);
@@ -400,8 +406,8 @@ void moveAxes(float x, float y, float z) {
     }
     
     if (!isnan(y)) {
-        // Calcular pasos relativos para el eje Y
-        int32_t targetY = y * (STEPS_PER_REV / 360.0); // Convertir a pasos
+        // Calcular pasos relativos para el eje Y (mm → pasos)
+        int32_t targetY = y * STEPS_PER_MM_Y; // Convertir mm a pasos (79 steps/mm)
         ySteps = targetY - currentY;
         yDir = (ySteps >= 0);
         ySteps = abs(ySteps);
@@ -409,8 +415,8 @@ void moveAxes(float x, float y, float z) {
     }
     
     if (!isnan(z)) {
-        // Calcular pasos relativos para el eje Z
-        int32_t targetZ = z * (STEPS_PER_REV / 360.0); // Convertir a pasos
+        // Calcular pasos relativos para el eje Z (mm → pasos)
+        int32_t targetZ = z * STEPS_PER_MM_Z; // Convertir mm a pasos (3930 steps/mm)
         zSteps = targetZ - currentZ;
         zDir = (zSteps >= 0);
         zSteps = abs(zSteps);
@@ -420,24 +426,27 @@ void moveAxes(float x, float y, float z) {
     // Mover los motores
     if (xSteps > 0) {
         // Enviar información por USB CDC
-        char msg[50];
-        sprintf(msg, "Moviendo X: %ld pasos, dir: %s\r\n", xSteps, xDir ? "horario" : "antihorario");
+        char msg[80];
+        sprintf(msg, "Moviendo X: %.2fmm (%ld pasos), dir: %s\r\n", 
+               !isnan(x) ? x : 0.0, xSteps, xDir ? "+" : "-");
         CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
         X_move(xSteps, xDir);
     }
     
     if (ySteps > 0) {
         // Enviar información por USB CDC
-        char msg[50];
-        sprintf(msg, "Moviendo Y: %ld pasos, dir: %s\r\n", ySteps, yDir ? "horario" : "antihorario");
+        char msg[80];
+        sprintf(msg, "Moviendo Y: %.2fmm (%ld pasos), dir: %s\r\n", 
+               !isnan(y) ? y : 0.0, ySteps, yDir ? "+" : "-");
         CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
         Y_move(ySteps, yDir);
     }
     
     if (zSteps > 0) {
         // Enviar información por USB CDC
-        char msg[50];
-        sprintf(msg, "Moviendo Z: %ld pasos, dir: %s\r\n", zSteps, zDir ? "horario" : "antihorario");
+        char msg[80];
+        sprintf(msg, "Moviendo Z: %.2fmm (%ld pasos), dir: %s\r\n", 
+               !isnan(z) ? z : 0.0, zSteps, zDir ? "+" : "-");
         CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
         Z_move(zSteps, zDir);
     }
@@ -465,6 +474,21 @@ void processGcode(const char* command) {
     else if (strncmp(command, "G28", 3) == 0) {
         CDC_Transmit_FS((uint8_t*)"Ejecutando homing...\r\n", 22);
         performHoming();
+        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
+    }
+    // Comando M114 - Reportar posición actual
+    else if (strncmp(command, "M114", 4) == 0) {
+        char posMsg[100];
+        float xPos = currentX / (float)STEPS_PER_MM_X;
+        float yPos = currentY / (float)STEPS_PER_MM_Y;
+        float zPos = currentZ / (float)STEPS_PER_MM_Z;
+        sprintf(posMsg, "X:%.2f Y:%.2f Z:%.2f\r\n", xPos, yPos, zPos);
+        CDC_Transmit_FS((uint8_t*)posMsg, strlen(posMsg));
+        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
+    }
+    // Comando M503 - Mostrar configuración
+    else if (strncmp(command, "M503", 4) == 0) {
+        showConfiguration();
         CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
     }
     else {
@@ -563,6 +587,34 @@ float extractParam(const char* command, char param) {
 
 // Función auxiliar para movimiento genérico (no utilizada actualmente)
 // Se mantiene para compatibilidad futura
+
+// Función para mostrar la configuración actual del sistema
+void showConfiguration(void) {
+    char msg[200];
+    
+    CDC_Transmit_FS((uint8_t*)"=== CONFIGURACIÓN CNC ===\r\n", 28);
+    
+    sprintf(msg, "Steps per mm X: %d\r\n", STEPS_PER_MM_X);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    sprintf(msg, "Steps per mm Y: %d\r\n", STEPS_PER_MM_Y);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    sprintf(msg, "Steps per mm Z: %d\r\n", STEPS_PER_MM_Z);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    sprintf(msg, "Step delay: %d us\r\n", STEP_DELAY_US);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Mostrar posición actual
+    float xPos = currentX / (float)STEPS_PER_MM_X;
+    float yPos = currentY / (float)STEPS_PER_MM_Y;
+    float zPos = currentZ / (float)STEPS_PER_MM_Z;
+    sprintf(msg, "Posición actual: X%.2f Y%.2f Z%.2f mm\r\n", xPos, yPos, zPos);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    CDC_Transmit_FS((uint8_t*)"=== FIN CONFIGURACIÓN ===\r\n", 28);
+}
 
 // Función para verificar si un final de carrera está presionado
 bool isEndstopPressed(char axis) {
