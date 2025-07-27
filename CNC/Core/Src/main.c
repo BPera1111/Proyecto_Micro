@@ -30,12 +30,12 @@
 #include <stdint.h>
 #include "usbd_cdc_if.h"
 #include "stm32f1xx_hal.h"
+#include "gcode_parser.h"
 //#include "usart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -47,6 +47,16 @@
 #define STEPS_PER_MM_Y 79      // Pasos por mm para eje Y
 #define STEPS_PER_MM_Z 3930    // Pasos por mm para eje Z
 
+// Códigos de alarma específicos de la máquina
+#define ALARM_HARD_LIMIT        1   // Hard limit activo
+#define ALARM_SOFT_LIMIT        2   // Soft limit activo
+#define ALARM_ABORT_CYCLE       3   // Reset durante ciclo
+#define ALARM_PROBE_FAIL_INITIAL 4  // Probe fail al inicio
+#define ALARM_PROBE_FAIL_CONTACT 5  // Probe fail en contacto
+#define ALARM_HOMING_FAIL_RESET  6  // Homing fail reset
+#define ALARM_HOMING_FAIL_DOOR   7  // Homing fail puerta
+#define ALARM_HOMING_FAIL_PULLOFF 8 // Homing fail pulloff
+#define ALARM_HOMING_FAIL_APPROACH 9 // Homing fail approach
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -112,7 +122,10 @@ void Z_stepOnce(void);
 float extractParameter(const char* command, char param);
 void performHoming(void);
 bool isEndstopPressed(char axis);
+void enableSteppers(void);
+void disableSteppers(void);
 void showConfiguration(void);
+void report_status_message(uint8_t status_code);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -459,47 +472,32 @@ void moveAxes(float x, float y, float z) {
 }
 
 void processGcode(const char* command) {
-    // Enviar comando procesado
-    // char msg[100];
-    // sprintf(msg, "Procesando: %s\r\n", command);
-    // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    // Usar el nuevo parser modular
+    char line_copy[100];
+    strncpy(line_copy, command, sizeof(line_copy) - 1);
+    line_copy[sizeof(line_copy) - 1] = '\0';
     
-    // Procesar comando G0 o G1 (movimientos)
-    if (strncmp(command, "G0", 2) == 0 || strncmp(command, "G1", 2) == 0) {
-        // Procesar movimiento
-        float xPos = extractParameter(command, 'X');
-        float yPos = extractParameter(command, 'Y');
-        float zPos = extractParameter(command, 'Z');
-        
-        // Mover los ejes
-        moveAxes(xPos, yPos, zPos);
-        
-        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
+    uint8_t status = gc_execute_line(line_copy);
+    
+    // Enviar respuesta según el estándar GRBL
+    if (status == STATUS_OK) {
+        // Verificar si es un comando que requiere respuesta especial
+        if (strncmp(command, "M114", 4) == 0) {
+            // M114 - Reportar posición actual
+            char posMsg[100];
+            float xPos = currentX / (float)STEPS_PER_MM_X;
+            float yPos = currentY / (float)STEPS_PER_MM_Y;
+            float zPos = currentZ / (float)STEPS_PER_MM_Z;
+            sprintf(posMsg, "X:%.2f Y:%.2f Z:%.2f\r\n", xPos, yPos, zPos);
+            CDC_Transmit_FS((uint8_t*)posMsg, strlen(posMsg));
+        } else if (strncmp(command, "M503", 4) == 0) {
+            // M503 - Mostrar configuración
+            showConfiguration();
+        }
     }
-    // Procesar comando G28 (homing)
-    else if (strncmp(command, "G28", 3) == 0) {
-        CDC_Transmit_FS((uint8_t*)"Ejecutando homing...\r\n", 22);
-        performHoming();
-        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
-    }
-    // Comando M114 - Reportar posición actual
-    else if (strncmp(command, "M114", 4) == 0) {
-        char posMsg[100];
-        float xPos = currentX / (float)STEPS_PER_MM_X;
-        float yPos = currentY / (float)STEPS_PER_MM_Y;
-        float zPos = currentZ / (float)STEPS_PER_MM_Z;
-        sprintf(posMsg, "X:%.2f Y:%.2f Z:%.2f\r\n", xPos, yPos, zPos);
-        CDC_Transmit_FS((uint8_t*)posMsg, strlen(posMsg));
-        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
-    }
-    // Comando M503 - Mostrar configuración
-    else if (strncmp(command, "M503", 4) == 0) {
-        showConfiguration();
-        CDC_Transmit_FS((uint8_t*)"OK\r\n", 4);
-    }
-    else {
-        CDC_Transmit_FS((uint8_t*)"Comando no reconocido\r\n", 23);
-    }
+    
+    // Enviar respuesta final usando el parser modular
+    report_status_message(status);
 }
 
 void loop(void) {
@@ -606,16 +604,54 @@ void setup(void) {
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
     
     // Habilitar drivers de motores (EN pins en LOW)
-    HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_RESET);  // Habilita driver X
-    HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_RESET);  // Habilita driver Y
-    HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_RESET);  // Habilita driver Z
+    enableSteppers();
 
     // Asegurar que LEDs estén apagados al inicio
     HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+    
+    // Inicializar parser G-code modular con callbacks
+    gc_init();
 }
 
 // Nota: El callback USB CDC está implementado en usbd_cdc_if.c
+
+// =============================================================================
+// FUNCIONES DE CALLBACK PARA EL PARSER MODULAR
+// =============================================================================
+
+// Callback para realizar homing
+void performHomingCallback(void) {
+    performHoming();
+}
+
+// Callback para establecer posición
+void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
+    if (x_defined) {
+        currentX = x * STEPS_PER_MM_X;
+    }
+    if (y_defined) {
+        currentY = y * STEPS_PER_MM_Y;
+    }
+    if (z_defined) {
+        currentZ = z * STEPS_PER_MM_Z;
+    }
+    char setMsg[100];
+    sprintf(setMsg, "Posición establecida: X%.2f Y%.2f Z%.2f\r\n",
+           currentX/(float)STEPS_PER_MM_X, 
+           currentY/(float)STEPS_PER_MM_Y, 
+           currentZ/(float)STEPS_PER_MM_Z);
+    CDC_Transmit_FS((uint8_t*)setMsg, strlen(setMsg));
+}
+
+// Callback para movimiento de ejes
+void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
+    float target_x = x_defined ? x : NAN;
+    float target_y = y_defined ? y : NAN;
+    float target_z = z_defined ? z : NAN;
+    
+    moveAxes(target_x, target_y, target_z);
+}
 // La función CDC_Receive_FS maneja la recepción de datos
 
 // Función compatible con el código original (mantener para compatibilidad)
@@ -779,6 +815,29 @@ void performHoming(void) {
     // Mensaje final
     CDC_Transmit_FS((uint8_t*)"Homing completado. Todos los ejes en posición home.\r\n", 54);
 }
+
+/**
+  * @brief  Habilita todos los motores paso a paso
+  * @retval None
+  */
+void enableSteppers(void) {
+    // Habilitar drivers (EN LOW = habilitado para la mayoría de drivers A4988/DRV8825)
+    HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_RESET);  // Enable motor X
+    HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_RESET);  // Enable motor Y
+    HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_RESET);  // Enable motor Z
+}
+
+/**
+  * @brief  Deshabilita todos los motores paso a paso
+  * @retval None
+  */
+void disableSteppers(void) {
+    // Deshabilitar drivers (EN HIGH = deshabilitado para la mayoría de drivers A4988/DRV8825)
+    HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_SET);    // Disable motor X
+    HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_SET);    // Disable motor Y
+    HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_SET);    // Disable motor Z
+}
+
 /* USER CODE END 4 */
 
 /**

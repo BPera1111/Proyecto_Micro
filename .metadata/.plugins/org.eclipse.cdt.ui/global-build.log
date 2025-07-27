@@ -1,17 +1,39 @@
-04:11:40 **** Incremental Build of configuration Debug for project CNC ****
+22:08:11 **** Incremental Build of configuration Debug for project CNC ****
 make -j8 all 
+arm-none-eabi-gcc "../Core/Src/gcode_parser.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I../USB_DEVICE/App -I../USB_DEVICE/Target -I../Middlewares/ST/STM32_USB_Device_Library/Core/Inc -I../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/gcode_parser.d" -MT"Core/Src/gcode_parser.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/gcode_parser.o"
 arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I../USB_DEVICE/App -I../USB_DEVICE/Target -I../Middlewares/ST/STM32_USB_Device_Library/Core/Inc -I../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/main.o"
-arm-none-eabi-gcc -o "CNC.elf" @"objects.list"   -mcpu=cortex-m3 -T"C:\Users\bruno\STM32CubeIDE\Proyecto_Micro\CNC\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CNC.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
-Finished building target: CNC.elf
- 
-arm-none-eabi-size  CNC.elf 
-arm-none-eabi-objdump -h -S CNC.elf  > "CNC.list"
-arm-none-eabi-objcopy  -O ihex CNC.elf  "CNC.hex"
-   text	   data	    bss	    dec	    hex	filename
-  52464	    836	   6580	  59880	   e9e8	CNC.elf
-Finished building: default.size.stdout
- 
-Finished building: CNC.hex
- 
-Finished building: CNC.list
- 
+In file included from ../Core/Src/gcode_parser.c:15:
+../Core/Src/gcode_parser.c: In function 'gc_execute_block':
+../Core/Src/gcode_parser.c:397:34: error: 'gc_modal_t' has no member named 'non_modal'
+  397 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_ENABLE)) {
+      |                                  ^
+../Core/Inc/gcode_parser.h:85:30: note: in definition of macro 'bit_istrue'
+   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
+      |                              ^
+../Core/Src/gcode_parser.c:397:46: error: 'NON_MODAL_MOTOR_ENABLE' undeclared (first use in this function)
+  397 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_ENABLE)) {
+      |                                              ^~~~~~~~~~~~~~~~~~~~~~
+../Core/Inc/gcode_parser.h:85:34: note: in definition of macro 'bit_istrue'
+   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
+      |                                  ^~~~
+../Core/Src/gcode_parser.c:397:46: note: each undeclared identifier is reported only once for each function it appears in
+  397 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_ENABLE)) {
+      |                                              ^~~~~~~~~~~~~~~~~~~~~~
+../Core/Inc/gcode_parser.h:85:34: note: in definition of macro 'bit_istrue'
+   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
+      |                                  ^~~~
+../Core/Src/gcode_parser.c:401:34: error: 'gc_modal_t' has no member named 'non_modal'
+  401 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_DISABLE)) {
+      |                                  ^
+../Core/Inc/gcode_parser.h:85:30: note: in definition of macro 'bit_istrue'
+   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
+      |                              ^
+../Core/Src/gcode_parser.c:401:46: error: 'NON_MODAL_MOTOR_DISABLE' undeclared (first use in this function)
+  401 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_DISABLE)) {
+      |                                              ^~~~~~~~~~~~~~~~~~~~~~~
+../Core/Inc/gcode_parser.h:85:34: note: in definition of macro 'bit_istrue'
+   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
+      |                                  ^~~~
+make: *** [Core/Src/subdir.mk:37: Core/Src/gcode_parser.o] Error 1
+make: *** Waiting for unfinished jobs....
+"make -j8 all" terminated with exit code 2. Build might be incomplete.

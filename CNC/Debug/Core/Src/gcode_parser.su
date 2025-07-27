@@ -1,0 +1,7 @@
+../Core/Src/gcode_parser.c:46:6:gc_init	8	static
+../Core/Src/gcode_parser.c:64:6:gc_clear_block	8	static
+../Core/Src/gcode_parser.c:94:6:read_float	40	static
+../Core/Src/gcode_parser.c:140:9:gc_parse_line	32	static
+../Core/Src/gcode_parser.c:314:9:gc_execute_block	152	static
+../Core/Src/gcode_parser.c:417:9:gc_execute_line	24	static
+../Core/Src/gcode_parser.c:447:6:report_status_message	48	static
