@@ -72,12 +72,27 @@ extern UART_HandleTypeDef huart1;
 char inputBuffer[100];
 int bufferIndex = 0;
 bool commandComplete = false;
-int32_t currentX = 0, currentY = 0, currentZ = 0;
+int32_t currentX, currentY, currentZ;
+
+// Variables para control de velocidad y feed rate
+float currentFeedRate = 100.0;     // Feed rate en mm/min (valor por defecto)
+float rapidRate = 1000.0;          // Velocidad rápida para G0 en mm/min
+float maxFeedRate = 2000.0;        // Velocidad máxima permitida
 
 // Buffer para recibir comandos por USB CDC
 char usbBuffer[100];
 int usbBufferIndex = 0;
 bool usbCommandComplete = false;  // Cambiar a false para evitar procesamiento inicial
+
+// Sistema de almacenamiento de programa G-code
+#define MAX_GCODE_LINES 100        // Máximo número de líneas de G-code a almacenar
+#define MAX_LINE_LENGTH 80         // Longitud máxima de cada línea de G-code
+char gcodeProgram[MAX_GCODE_LINES][MAX_LINE_LENGTH];  // Buffer para almacenar el programa
+int programLineCount = 0;          // Número de líneas actualmente almacenadas
+int currentExecutingLine = 0;      // Línea que se está ejecutando actualmente
+bool isStoringProgram = false;     // Flag para indicar si estamos en modo almacenamiento
+bool isProgramLoaded = false;      // Flag para indicar si hay un programa cargado
+bool isProgramRunning = false;     // Flag para indicar si el programa se está ejecutando
 
 // Definiciones de pines equivalentes a Arduino
 #define X_STEP_PIN    GPIO_PIN_6
@@ -109,7 +124,7 @@ static void MX_GPIO_Init(void);
 void loop(void);
 void setup(void);
 void delay_us(uint32_t us);
-void moveAxes(float x, float y, float z);
+// void moveAxes(float x, float y, float z);
 float extractParam(const char* command, char param);
 void processGcode(const char* command);
 void readUSBCommands(void);
@@ -126,6 +141,22 @@ void enableSteppers(void);
 void disableSteppers(void);
 void showConfiguration(void);
 void report_status_message(uint8_t status_code);
+
+// Funciones para control de feed rate
+uint32_t calculateStepDelay(float feedRate, float distance_mm);
+void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapid);
+
+// Funciones para manejo de programa G-code
+void startProgramStorage(void);
+void stopProgramStorage(void);
+bool addLineToProgram(const char* line);
+void clearProgram(void);
+void showProgramInfo(void);
+void runProgram(void);
+void runNextLine(void);
+void pauseProgram(void);
+void stopProgram(void);
+void showHelp(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -406,73 +437,337 @@ float extractParameter(const char* command, char param) {
     return NAN; // Not a Number
 }
 
-void moveAxes(float x, float y, float z) {
-    // Convertir de milímetros a pasos usando valores específicos por eje
-    int32_t xSteps = 0;
-    int32_t ySteps = 0;
-    int32_t zSteps = 0;
-    bool xDir = true;
-    bool yDir = true;
-    bool zDir = true;
+/**
+  * @brief  Calcula el delay entre pasos basado en el feed rate
+  * @param  feedRate: Velocidad en mm/min
+  * @param  distance_mm: Distancia total del movimiento en mm
+  * @retval Delay en microsegundos entre pasos
+  */
+uint32_t calculateStepDelay(float feedRate, float distance_mm) {
+    if (feedRate <= 0) return STEP_DELAY_US; // Usar delay por defecto si es inválido
     
-    if (!isnan(x)) {
-        // Calcular pasos relativos para el eje X (mm → pasos)
-        int32_t targetX = x * STEPS_PER_MM_X; // Convertir mm a pasos (79 steps/mm)
-        xSteps = targetX - currentX;
-        xDir = (xSteps >= 0);
-        xSteps = abs(xSteps);
-        currentX = targetX; // Actualizar posición actual
+    // Calcular pasos por segundo para el eje dominante
+    // feedRate está en mm/min, convertir a mm/s
+    float feedRate_mm_per_sec = feedRate / 60.0;
+    
+    // Usar el eje con mayor resolución (Z) para el cálculo más conservador
+    float steps_per_mm = STEPS_PER_MM_Z; // El más alto: 3930 steps/mm
+    
+    // Calcular pasos por segundo
+    float steps_per_sec = feedRate_mm_per_sec * steps_per_mm;
+    
+    // Calcular delay en microsegundos entre pasos
+    if (steps_per_sec <= 0) return STEP_DELAY_US;
+    
+    uint32_t delay_us = (uint32_t)(1000000.0 / steps_per_sec);
+    
+    // Limitar delay mínimo para evitar problemas de timing
+    if (delay_us < 200) delay_us = 200; // Mínimo 200us = 5000 pasos/segundo máximo
+    
+    return delay_us;
+}
+
+// void moveAxes(float x, float y, float z) {
+//     // Calcular posiciones objetivo en pasos
+//     int32_t targetX = !isnan(x) ? (int32_t)(x * STEPS_PER_MM_X) : currentX;
+//     int32_t targetY = !isnan(y) ? (int32_t)(y * STEPS_PER_MM_Y) : currentY;
+//     int32_t targetZ = !isnan(z) ? (int32_t)(z * STEPS_PER_MM_Z) : currentZ;
+    
+//     // Calcular diferencias (pasos relativos)
+//     int32_t deltaX = targetX - currentX;
+//     int32_t deltaY = targetY - currentY;
+//     int32_t deltaZ = targetZ - currentZ;
+    
+//     // Determinar direcciones
+//     bool dirX = (deltaX >= 0);
+//     bool dirY = (deltaY >= 0);
+//     bool dirZ = (deltaZ >= 0);
+    
+//     // Configurar direcciones de los motores
+//     if (deltaX != 0) HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dirX ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//     if (deltaY != 0) HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dirY ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//     if (deltaZ != 0) HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dirZ ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    
+//     // Convertir a valores absolutos para el algoritmo
+//     deltaX = abs(deltaX);
+//     deltaY = abs(deltaY);
+//     deltaZ = abs(deltaZ);
+    
+//     // Mostrar información del movimiento
+//     char msg[120];
+//     // Convertir floats a enteros para evitar problemas de printf
+//     float pos_x = !isnan(x) ? x : currentX/(float)STEPS_PER_MM_X;
+//     float pos_y = !isnan(y) ? y : currentY/(float)STEPS_PER_MM_Y;
+//     float pos_z = !isnan(z) ? z : currentZ/(float)STEPS_PER_MM_Z;
+    
+//     int x_int = (int)pos_x;
+//     int x_dec = (int)((pos_x - x_int) * 100);
+//     int y_int = (int)pos_y;
+//     int y_dec = (int)((pos_y - y_int) * 100);
+//     int z_int = (int)pos_z;
+//     int z_dec = (int)((pos_z - z_int) * 100);
+    
+//     sprintf(msg, "Movimiento interpolado: X=%d.%02d(%ld) Y=%d.%02d(%ld) Z=%d.%02d(%ld)\r\n", 
+//            x_int, abs(x_dec), deltaX,
+//            y_int, abs(y_dec), deltaY,
+//            z_int, abs(z_dec), deltaZ);
+//     CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+//     // Algoritmo de interpolación lineal 3D (Bresenham modificado)
+//     int32_t maxSteps = deltaX;
+//     if (deltaY > maxSteps) maxSteps = deltaY;
+//     if (deltaZ > maxSteps) maxSteps = deltaZ;
+    
+//     if (maxSteps == 0) return; // No hay movimiento
+    
+//     // Variables para el algoritmo de Bresenham 3D
+//     int32_t errorX = maxSteps / 2;
+//     int32_t errorY = maxSteps / 2;
+//     int32_t errorZ = maxSteps / 2;
+    
+//     // Encender LED indicador de movimiento
+//     HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
+    
+//     // Ejecutar pasos interpolados
+//     for (int32_t step = 0; step < maxSteps; step++) {
+//         bool stepX = false, stepY = false, stepZ = false;
+        
+//         // Algoritmo de Bresenham para X
+//         errorX += deltaX;
+//         if (errorX >= maxSteps) {
+//             errorX -= maxSteps;
+//             stepX = true;
+//         }
+        
+//         // Algoritmo de Bresenham para Y
+//         errorY += deltaY;
+//         if (errorY >= maxSteps) {
+//             errorY -= maxSteps;
+//             stepY = true;
+//         }
+        
+//         // Algoritmo de Bresenham para Z
+//         errorZ += deltaZ;
+//         if (errorZ >= maxSteps) {
+//             errorZ -= maxSteps;
+//             stepZ = true;
+//         }
+        
+//         // Ejecutar pasos simultáneamente
+//         if (stepX) X_stepOnce();
+//         if (stepY) Y_stepOnce();
+//         if (stepZ) Z_stepOnce();
+        
+//         // Delay entre pasos
+//         delay_us(STEP_DELAY_US);
+//     }
+    
+//     // Apagar LED
+//     HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+    
+//     // Actualizar posiciones actuales
+//     currentX = targetX;
+//     currentY = targetY;
+//     currentZ = targetZ;
+// }
+
+/**
+  * @brief  Movimiento de ejes con control de feed rate (versión avanzada)
+  * @param  x, y, z: Coordenadas objetivo en mm
+  * @param  feedRate: Velocidad en mm/min
+  * @param  isRapid: true para G0 (rapid), false para G1 (linear)
+  * @retval None
+  */
+void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapid) {
+    // Calcular posiciones objetivo en pasos
+    int32_t targetX = !isnan(x) ? (int32_t)(x * STEPS_PER_MM_X) : currentX;
+    int32_t targetY = !isnan(y) ? (int32_t)(y * STEPS_PER_MM_Y) : currentY;
+    int32_t targetZ = !isnan(z) ? (int32_t)(z * STEPS_PER_MM_Z) : currentZ;
+    
+    // Calcular diferencias (pasos relativos)
+    int32_t deltaX = targetX - currentX;
+    int32_t deltaY = targetY - currentY;
+    int32_t deltaZ = targetZ - currentZ;
+    
+    // Calcular distancia total en mm para determinar velocidad
+    float distance_X = !isnan(x) ? fabs(x - (currentX / (float)STEPS_PER_MM_X)) : 0;
+    float distance_Y = !isnan(y) ? fabs(y - (currentY / (float)STEPS_PER_MM_Y)) : 0;
+    float distance_Z = !isnan(z) ? fabs(z - (currentZ / (float)STEPS_PER_MM_Z)) : 0;
+    float total_distance = sqrt(distance_X*distance_X + distance_Y*distance_Y + distance_Z*distance_Z);
+    
+    // Seleccionar velocidad según el tipo de movimiento
+    float effective_feedrate = isRapid ? rapidRate : feedRate;
+    
+    // Limitar velocidad máxima
+    if (effective_feedrate > maxFeedRate) {
+        effective_feedrate = maxFeedRate;
     }
     
-    if (!isnan(y)) {
-        // Calcular pasos relativos para el eje Y (mm → pasos)
-        int32_t targetY = y * STEPS_PER_MM_Y; // Convertir mm a pasos (79 steps/mm)
-        ySteps = targetY - currentY;
-        yDir = (ySteps >= 0);
-        ySteps = abs(ySteps);
-        currentY = targetY; // Actualizar posición actual
+    // Determinar direcciones
+    bool dirX = (deltaX >= 0);
+    bool dirY = (deltaY >= 0);
+    bool dirZ = (deltaZ >= 0);
+    
+    // Configurar direcciones de los motores
+    if (deltaX != 0) HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dirX ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    if (deltaY != 0) HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dirY ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    if (deltaZ != 0) HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dirZ ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    
+    // Convertir a valores absolutos para el algoritmo
+    deltaX = abs(deltaX);
+    deltaY = abs(deltaY);
+    deltaZ = abs(deltaZ);
+    
+    // Calcular delay basado en feed rate
+    uint32_t step_delay = calculateStepDelay(effective_feedrate, total_distance);
+    
+    // Debug: verificar valores antes del mensaje
+    #if DEBUG_MESSAGES
+    char debug_msg[100];
+    snprintf(debug_msg, sizeof(debug_msg), "[DEBUG] x=%.2f y=%.2f z=%.2f rate=%.1f dist=%.2f\r\n", 
+             x, y, z, effective_feedrate, total_distance);
+    CDC_Transmit_FS((uint8_t*)debug_msg, strlen(debug_msg));
+    #endif
+    
+    // Mostrar información del movimiento con validación de valores
+    char msg[200];
+    float display_x = !isnan(x) ? x : (currentX / (float)STEPS_PER_MM_X);
+    float display_y = !isnan(y) ? y : (currentY / (float)STEPS_PER_MM_Y);
+    float display_z = !isnan(z) ? z : (currentZ / (float)STEPS_PER_MM_Z);
+    
+    // Convertir floats a enteros para evitar problemas de printf con floats
+    int x_int = (int)display_x;
+    int x_dec = (int)((display_x - x_int) * 100);
+    int y_int = (int)display_y;
+    int y_dec = (int)((display_y - y_int) * 100);
+    int z_int = (int)display_z;
+    int z_dec = (int)((display_z - z_int) * 100);
+    int f_int = (int)effective_feedrate;
+    int f_dec = (int)((effective_feedrate - f_int) * 10);
+    int d_int = (int)total_distance;
+    int d_dec = (int)((total_distance - d_int) * 100);
+    
+    snprintf(msg, sizeof(msg), "%s: X=%d.%02d Y=%d.%02d Z=%d.%02d F=%d.%d D=%d.%02dmm T=%lduS\r\n", 
+           isRapid ? "G0 RAPID" : "G1 LINEAR",
+           x_int, abs(x_dec),
+           y_int, abs(y_dec), 
+           z_int, abs(z_dec),
+           f_int, abs(f_dec), 
+           d_int, abs(d_dec), 
+           (unsigned long)step_delay);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Algoritmo de interpolación lineal 3D (Bresenham modificado)
+    int32_t maxSteps = deltaX;
+    if (deltaY > maxSteps) maxSteps = deltaY;
+    if (deltaZ > maxSteps) maxSteps = deltaZ;
+    
+    if (maxSteps == 0) return; // No hay movimiento
+    
+    // Variables para el algoritmo de Bresenham 3D
+    int32_t errorX = maxSteps / 2;
+    int32_t errorY = maxSteps / 2;
+    int32_t errorZ = maxSteps / 2;
+    
+    // Encender LED indicador de movimiento
+    HAL_GPIO_WritePin(GPIOB, isRapid ? LED_ANTIHORARIO : LED_HORARIO, GPIO_PIN_SET);
+    
+    // Ejecutar pasos interpolados con feed rate controlado
+    for (int32_t step = 0; step < maxSteps; step++) {
+        bool stepX = false, stepY = false, stepZ = false;
+        
+        // Algoritmo de Bresenham para X
+        errorX += deltaX;
+        if (errorX >= maxSteps) {
+            errorX -= maxSteps;
+            stepX = true;
+        }
+        
+        // Algoritmo de Bresenham para Y
+        errorY += deltaY;
+        if (errorY >= maxSteps) {
+            errorY -= maxSteps;
+            stepY = true;
+        }
+        
+        // Algoritmo de Bresenham para Z
+        errorZ += deltaZ;
+        if (errorZ >= maxSteps) {
+            errorZ -= maxSteps;
+            stepZ = true;
+        }
+        
+        // Ejecutar pasos simultáneamente
+        if (stepX) X_stepOnce();
+        if (stepY) Y_stepOnce();
+        if (stepZ) Z_stepOnce();
+        
+        // Delay controlado por feed rate
+        delay_us(step_delay);
     }
     
-    if (!isnan(z)) {
-        // Calcular pasos relativos para el eje Z (mm → pasos)
-        int32_t targetZ = z * STEPS_PER_MM_Z; // Convertir mm a pasos (3930 steps/mm)
-        zSteps = targetZ - currentZ;
-        zDir = (zSteps >= 0);
-        zSteps = abs(zSteps);
-        currentZ = targetZ; // Actualizar posición actual
-    }
+    // Apagar LEDs
+    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
     
-    // Mover los motores
-    if (xSteps > 0) {
-        // Enviar información por USB CDC
-        char msg[80];
-        sprintf(msg, "Moviendo X: %.2fmm (%ld pasos), dir: %s\r\n", 
-               !isnan(x) ? x : 0.0, xSteps, xDir ? "+" : "-");
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        X_move(xSteps, xDir);
-    }
-    
-    if (ySteps > 0) {
-        // Enviar información por USB CDC
-        char msg[80];
-        sprintf(msg, "Moviendo Y: %.2fmm (%ld pasos), dir: %s\r\n", 
-               !isnan(y) ? y : 0.0, ySteps, yDir ? "+" : "-");
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        Y_move(ySteps, yDir);
-    }
-    
-    if (zSteps > 0) {
-        // Enviar información por USB CDC
-        char msg[80];
-        sprintf(msg, "Moviendo Z: %.2fmm (%ld pasos), dir: %s\r\n", 
-               !isnan(z) ? z : 0.0, zSteps, zDir ? "+" : "-");
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        Z_move(zSteps, zDir);
-    }
+    // Actualizar posiciones actuales
+    currentX = targetX;
+    currentY = targetY;
+    currentZ = targetZ;
 }
 
 void processGcode(const char* command) {
-    // Usar el nuevo parser modular
+    // Comandos especiales para control de programa
+    if (strncmp(command, "PROGRAM_START", 13) == 0) {
+        startProgramStorage();
+        return;
+    }
+    else if (strncmp(command, "PROGRAM_STOP", 12) == 0) {
+        stopProgramStorage();
+        return;
+    }
+    else if (strncmp(command, "PROGRAM_RUN", 11) == 0) {
+        runProgram();
+        return;
+    }
+    else if (strncmp(command, "PROGRAM_INFO", 12) == 0) {
+        showProgramInfo();
+        return;
+    }
+    else if (strncmp(command, "PROGRAM_CLEAR", 13) == 0) {
+        clearProgram();
+        return;
+    }
+    else if (strncmp(command, "PROGRAM_PAUSE", 13) == 0) {
+        pauseProgram();
+        return;
+    }
+    else if (strncmp(command, "PROGRAM_NEXT", 12) == 0) {
+        runNextLine();
+        return;
+    }
+    else if (strncmp(command, "HELP", 4) == 0 || strncmp(command, "help", 4) == 0) {
+        showHelp();
+        return;
+    }
+    else if (strncmp(command, "FIN", 3) == 0 || strncmp(command, "fin", 3) == 0) {
+        if (isStoringProgram) {
+            stopProgramStorage();
+            return;
+        }
+    }
+    
+    // Si estamos en modo almacenamiento, agregar la línea al programa
+    if (isStoringProgram) {
+        if (addLineToProgram(command)) {
+            CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+        } else {
+            CDC_Transmit_FS((uint8_t*)"error: buffer lleno\r\n", 21);
+        }
+        return;
+    }
+    
+    // Procesamiento normal de G-code
     char line_copy[100];
     strncpy(line_copy, command, sizeof(line_copy) - 1);
     line_copy[sizeof(line_copy) - 1] = '\0';
@@ -488,7 +783,17 @@ void processGcode(const char* command) {
             float xPos = currentX / (float)STEPS_PER_MM_X;
             float yPos = currentY / (float)STEPS_PER_MM_Y;
             float zPos = currentZ / (float)STEPS_PER_MM_Z;
-            sprintf(posMsg, "X:%.2f Y:%.2f Z:%.2f\r\n", xPos, yPos, zPos);
+            
+            // Convertir a enteros para evitar problemas con printf float
+            int x_int = (int)xPos;
+            int x_dec = (int)((xPos - x_int) * 100);
+            int y_int = (int)yPos;
+            int y_dec = (int)((yPos - y_int) * 100);
+            int z_int = (int)zPos;
+            int z_dec = (int)((zPos - z_int) * 100);
+            
+            sprintf(posMsg, "X:%d.%02d Y:%d.%02d Z:%d.%02d\r\n", 
+                   x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
             CDC_Transmit_FS((uint8_t*)posMsg, strlen(posMsg));
         } else if (strncmp(command, "M503", 4) == 0) {
             // M503 - Mostrar configuración
@@ -637,10 +942,21 @@ void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defin
         currentZ = z * STEPS_PER_MM_Z;
     }
     char setMsg[100];
-    sprintf(setMsg, "Posición establecida: X%.2f Y%.2f Z%.2f\r\n",
-           currentX/(float)STEPS_PER_MM_X, 
-           currentY/(float)STEPS_PER_MM_Y, 
-           currentZ/(float)STEPS_PER_MM_Z);
+    
+    // Convertir posiciones a enteros para evitar problemas con printf float
+    float pos_x = currentX/(float)STEPS_PER_MM_X;
+    float pos_y = currentY/(float)STEPS_PER_MM_Y;
+    float pos_z = currentZ/(float)STEPS_PER_MM_Z;
+    
+    int x_int = (int)pos_x;
+    int x_dec = (int)((pos_x - x_int) * 100);
+    int y_int = (int)pos_y;
+    int y_dec = (int)((pos_y - y_int) * 100);
+    int z_int = (int)pos_z;
+    int z_dec = (int)((pos_z - z_int) * 100);
+    
+    sprintf(setMsg, "Posición establecida: X%d.%02d Y%d.%02d Z%d.%02d\r\n",
+           x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
     CDC_Transmit_FS((uint8_t*)setMsg, strlen(setMsg));
 }
 
@@ -650,7 +966,31 @@ void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined,
     float target_y = y_defined ? y : NAN;
     float target_z = z_defined ? z : NAN;
     
-    moveAxes(target_x, target_y, target_z);
+    // Usar función con feed rate por defecto (para compatibilidad)
+    moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
+}
+
+// Callback específico para movimiento rápido G0
+void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
+    float target_x = x_defined ? x : NAN;
+    float target_y = y_defined ? y : NAN;
+    float target_z = z_defined ? z : NAN;
+    
+    moveAxesWithFeedRate(target_x, target_y, target_z, rapidRate, true);
+}
+
+// Callback específico para movimiento lineal G1 con feed rate
+void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined) {
+    float target_x = x_defined ? x : NAN;
+    float target_y = y_defined ? y : NAN;
+    float target_z = z_defined ? z : NAN;
+    
+    // Actualizar feed rate actual si se especifica
+    if (f_defined && feedRate > 0) {
+        currentFeedRate = feedRate;
+    }
+    
+    moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
 }
 // La función CDC_Receive_FS maneja la recepción de datos
 
@@ -683,11 +1023,38 @@ void showConfiguration(void) {
     sprintf(msg, "Step delay: %d us\r\n", STEP_DELAY_US);
     CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     
+    // Convertir feed rate actual a enteros
+    int feed_int = (int)currentFeedRate;
+    int feed_dec = (int)((currentFeedRate - feed_int) * 10);
+    sprintf(msg, "Feed rate actual: %d.%d mm/min\r\n", feed_int, feed_dec);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Convertir velocidades a enteros para mostrar
+    int rapid_int = (int)rapidRate;
+    int rapid_dec = (int)((rapidRate - rapid_int) * 10);
+    sprintf(msg, "Velocidad rápida (G0): %d.%d mm/min\r\n", rapid_int, rapid_dec);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    int max_int = (int)maxFeedRate;
+    int max_dec = (int)((maxFeedRate - max_int) * 10);
+    sprintf(msg, "Velocidad máxima: %d.%d mm/min\r\n", max_int, max_dec);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
     // Mostrar posición actual
     float xPos = currentX / (float)STEPS_PER_MM_X;
     float yPos = currentY / (float)STEPS_PER_MM_Y;
     float zPos = currentZ / (float)STEPS_PER_MM_Z;
-    sprintf(msg, "Posición actual: X%.2f Y%.2f Z%.2f mm\r\n", xPos, yPos, zPos);
+    
+    // Convertir a enteros para evitar problemas con printf float
+    int x_int = (int)xPos;
+    int x_dec = (int)((xPos - x_int) * 100);
+    int y_int = (int)yPos;
+    int y_dec = (int)((yPos - y_int) * 100);
+    int z_int = (int)zPos;
+    int z_dec = (int)((zPos - z_int) * 100);
+    
+    sprintf(msg, "Posición actual: X%d.%02d Y%d.%02d Z%d.%02d mm\r\n", 
+           x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
     CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     
     CDC_Transmit_FS((uint8_t*)"=== FIN CONFIGURACIÓN ===\r\n", 28);
@@ -836,6 +1203,290 @@ void disableSteppers(void) {
     HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_SET);    // Disable motor X
     HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_SET);    // Disable motor Y
     HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_SET);    // Disable motor Z
+}
+
+// =============================================================================
+// FUNCIONES PARA MANEJO DE PROGRAMA G-CODE
+// =============================================================================
+
+/**
+  * @brief  Inicia el modo de almacenamiento de programa
+  * @retval None
+  */
+void startProgramStorage(void) {
+    isStoringProgram = true;
+    programLineCount = 0;
+    isProgramLoaded = false;
+    
+    // Limpiar buffer de programa
+    for (int i = 0; i < MAX_GCODE_LINES; i++) {
+        memset(gcodeProgram[i], 0, MAX_LINE_LENGTH);
+    }
+    
+    CDC_Transmit_FS((uint8_t*)"Modo almacenamiento activado. Envie comandos G-code.\r\n", 55);
+    CDC_Transmit_FS((uint8_t*)"Termine con 'FIN' o 'PROGRAM_STOP'\r\n", 37);
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Detiene el modo de almacenamiento de programa
+  * @retval None
+  */
+void stopProgramStorage(void) {
+    isStoringProgram = false;
+    
+    if (programLineCount > 0) {
+        isProgramLoaded = true;
+        char msg[100];
+        sprintf(msg, "Programa cargado: %d lineas almacenadas\r\n", programLineCount);
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        CDC_Transmit_FS((uint8_t*)"Use 'PROGRAM_RUN' para ejecutar o 'PROGRAM_INFO' para ver detalles\r\n", 68);
+    } else {
+        CDC_Transmit_FS((uint8_t*)"No se almacenaron lineas\r\n", 26);
+    }
+    
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Agrega una línea al programa almacenado
+  * @param  line: Línea de G-code a agregar
+  * @retval true si se agregó exitosamente, false si el buffer está lleno
+  */
+bool addLineToProgram(const char* line) {
+    if (programLineCount >= MAX_GCODE_LINES) {
+        return false; // Buffer lleno
+    }
+    
+    // Copiar la línea, eliminando espacios al inicio y final
+    const char* start = line;
+    while (*start == ' ' || *start == '\t') start++; // Saltar espacios iniciales
+    
+    if (strlen(start) == 0) {
+        return true; // Línea vacía, no la almacenamos pero no es error
+    }
+    
+    strncpy(gcodeProgram[programLineCount], start, MAX_LINE_LENGTH - 1);
+    gcodeProgram[programLineCount][MAX_LINE_LENGTH - 1] = '\0';
+    
+    // Eliminar \r\n del final si existen
+    int len = strlen(gcodeProgram[programLineCount]);
+    while (len > 0 && (gcodeProgram[programLineCount][len-1] == '\r' || 
+                       gcodeProgram[programLineCount][len-1] == '\n')) {
+        gcodeProgram[programLineCount][len-1] = '\0';
+        len--;
+    }
+    
+    programLineCount++;
+    return true;
+}
+
+/**
+  * @brief  Limpia el programa almacenado
+  * @retval None
+  */
+void clearProgram(void) {
+    programLineCount = 0;
+    currentExecutingLine = 0;
+    isProgramLoaded = false;
+    isProgramRunning = false;
+    isStoringProgram = false;
+    
+    // Limpiar buffer
+    for (int i = 0; i < MAX_GCODE_LINES; i++) {
+        memset(gcodeProgram[i], 0, MAX_LINE_LENGTH);
+    }
+    
+    CDC_Transmit_FS((uint8_t*)"Programa limpiado\r\n", 19);
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Muestra información del programa cargado
+  * @retval None
+  */
+void showProgramInfo(void) {
+    char msg[150];
+    
+    sprintf(msg, "=== INFORMACION DEL PROGRAMA ===\r\n");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    sprintf(msg, "Lineas almacenadas: %d/%d\r\n", programLineCount, MAX_GCODE_LINES);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    sprintf(msg, "Programa cargado: %s\r\n", isProgramLoaded ? "SI" : "NO");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    sprintf(msg, "Estado: %s\r\n", isProgramRunning ? "EJECUTANDO" : "DETENIDO");
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    if (isProgramLoaded && programLineCount > 0) {
+        sprintf(msg, "Linea actual: %d\r\n", currentExecutingLine + 1);
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        
+        CDC_Transmit_FS((uint8_t*)"\r\nContenido del programa:\r\n", 26);
+        for (int i = 0; i < programLineCount; i++) {
+            sprintf(msg, "%d: %s\r\n", i + 1, gcodeProgram[i]);
+            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        }
+    }
+    
+    CDC_Transmit_FS((uint8_t*)"=== FIN INFORMACION ===\r\n", 26);
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Ejecuta el programa completo almacenado
+  * @retval None
+  */
+void runProgram(void) {
+    if (!isProgramLoaded || programLineCount == 0) {
+        CDC_Transmit_FS((uint8_t*)"error: No hay programa cargado\r\n", 33);
+        return;
+    }
+    
+    isProgramRunning = true;
+    currentExecutingLine = 0;
+    
+    char msg[100];
+    sprintf(msg, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Ejecutar todas las líneas secuencialmente
+    for (currentExecutingLine = 0; currentExecutingLine < programLineCount; currentExecutingLine++) {
+        if (!isProgramRunning) {
+            CDC_Transmit_FS((uint8_t*)"Programa detenido por el usuario\r\n", 34);
+            break;
+        }
+        
+        sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        
+        // Crear una copia temporal para evitar recursión
+        char temp_command[MAX_LINE_LENGTH];
+        strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
+        temp_command[MAX_LINE_LENGTH - 1] = '\0';
+        
+        // Ejecutar el comando directamente usando el parser modular
+        uint8_t status = gc_execute_line(temp_command);
+        
+        // Mostrar resultado
+        if (status == STATUS_OK) {
+            CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+        } else {
+            sprintf(msg, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
+            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            isProgramRunning = false;
+            break;
+        }
+        
+        // Pequeña pausa entre comandos para estabilidad
+        HAL_Delay(10);
+    }
+    
+    isProgramRunning = false;
+    
+    if (currentExecutingLine >= programLineCount) {
+        CDC_Transmit_FS((uint8_t*)"Programa completado exitosamente\r\n", 34);
+    }
+    
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Ejecuta la siguiente línea del programa
+  * @retval None
+  */
+void runNextLine(void) {
+    if (!isProgramLoaded || programLineCount == 0) {
+        CDC_Transmit_FS((uint8_t*)"error: No hay programa cargado\r\n", 33);
+        return;
+    }
+    
+    if (currentExecutingLine >= programLineCount) {
+        CDC_Transmit_FS((uint8_t*)"Programa completado\r\n", 21);
+        isProgramRunning = false;
+        return;
+    }
+    
+    char msg[150];
+    sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    
+    // Ejecutar el comando
+    char temp_command[MAX_LINE_LENGTH];
+    strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
+    temp_command[MAX_LINE_LENGTH - 1] = '\0';
+    
+    uint8_t status = gc_execute_line(temp_command);
+    
+    if (status == STATUS_OK) {
+        CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+        currentExecutingLine++;
+    } else {
+        sprintf(msg, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        isProgramRunning = false;
+    }
+}
+
+/**
+  * @brief  Pausa la ejecución del programa
+  * @retval None
+  */
+void pauseProgram(void) {
+    isProgramRunning = false;
+    CDC_Transmit_FS((uint8_t*)"Programa pausado\r\n", 18);
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Detiene completamente la ejecución del programa
+  * @retval None
+  */
+void stopProgram(void) {
+    isProgramRunning = false;
+    currentExecutingLine = 0;
+    CDC_Transmit_FS((uint8_t*)"Programa detenido\r\n", 19);
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+}
+
+/**
+  * @brief  Muestra la ayuda del sistema de programas G-code
+  * @retval None
+  */
+void showHelp(void) {
+    CDC_Transmit_FS((uint8_t*)"\r\n=== AYUDA DEL SISTEMA CNC ===\r\n", 34);
+    CDC_Transmit_FS((uint8_t*)"\r\nCOMANDOS DE PROGRAMA:\r\n", 25);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_START  - Inicia modo almacenamiento de programa\r\n", 58);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_STOP   - Detiene almacenamiento\r\n", 42);
+    CDC_Transmit_FS((uint8_t*)"FIN            - Termina almacenamiento de programa\r\n", 54);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_RUN    - Ejecuta programa completo\r\n", 45);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_NEXT   - Ejecuta siguiente linea\r\n", 43);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_PAUSE  - Pausa ejecucion\r\n", 35);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_INFO   - Muestra informacion del programa\r\n", 52);
+    CDC_Transmit_FS((uint8_t*)"PROGRAM_CLEAR  - Limpia programa almacenado\r\n", 46);
+    
+    CDC_Transmit_FS((uint8_t*)"\r\nCOMANDOS G-CODE BASICOS:\r\n", 27);
+    CDC_Transmit_FS((uint8_t*)"G0 X Y Z       - Movimiento rapido\r\n", 37);
+    CDC_Transmit_FS((uint8_t*)"G1 X Y Z F     - Movimiento lineal con feed rate\r\n", 51);
+    CDC_Transmit_FS((uint8_t*)"G28            - Homing (ir a origen)\r\n", 39);
+    CDC_Transmit_FS((uint8_t*)"G92 X Y Z      - Establecer posicion actual\r\n", 46);
+    CDC_Transmit_FS((uint8_t*)"M17            - Habilitar motores\r\n", 37);
+    CDC_Transmit_FS((uint8_t*)"M18 / M84      - Deshabilitar motores\r\n", 39);
+    CDC_Transmit_FS((uint8_t*)"M114           - Reportar posicion actual\r\n", 44);
+    CDC_Transmit_FS((uint8_t*)"M503           - Mostrar configuracion\r\n", 40);
+    
+    CDC_Transmit_FS((uint8_t*)"\r\nEJEMPLO DE USO:\r\n", 18);
+    CDC_Transmit_FS((uint8_t*)"1. PROGRAM_START\r\n", 18);
+    CDC_Transmit_FS((uint8_t*)"2. G28 (enviar)\r\n", 17);
+    CDC_Transmit_FS((uint8_t*)"3. G0 X10 Y10 (enviar)\r\n", 24);
+    CDC_Transmit_FS((uint8_t*)"4. G1 X20 Y20 F100 (enviar)\r\n", 29);
+    CDC_Transmit_FS((uint8_t*)"5. FIN\r\n", 8);
+    CDC_Transmit_FS((uint8_t*)"6. PROGRAM_RUN\r\n", 16);
+    
+    CDC_Transmit_FS((uint8_t*)"\r\n=== FIN AYUDA ===\r\n", 20);
+    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
 }
 
 /* USER CODE END 4 */

@@ -37,6 +37,10 @@ extern void moveAxes(float x, float y, float z);
 extern void enableSteppers(void);
 extern void disableSteppers(void);
 
+// Funciones de callback con feed rate
+extern void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
+extern void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined);
+
 /* Funciones privadas -------------------------------------------------------*/
 
 /**
@@ -360,13 +364,16 @@ uint8_t gc_execute_block(void) {
     // Ejecutar comandos de movimiento
     switch (gc_block.modal.motion) {
         case MOTION_MODE_SEEK:    // G0 - Movimiento rápido
+            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
+                moveAxesRapidCallback(gc_block.values.x, gc_block.values.y, gc_block.values.z,
+                                     gc_block.values.x_defined, gc_block.values.y_defined, gc_block.values.z_defined);
+            }
+            break;
+            
         case MOTION_MODE_LINEAR:  // G1 - Movimiento lineal
             if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
-                float target_x = gc_block.values.x_defined ? gc_block.values.x : NAN;
-                float target_y = gc_block.values.y_defined ? gc_block.values.y : NAN;
-                float target_z = gc_block.values.z_defined ? gc_block.values.z : NAN;
-                
-                moveAxes(target_x, target_y, target_z);
+                moveAxesLinearCallback(gc_block.values.x, gc_block.values.y, gc_block.values.z, gc_block.values.f,
+                                      gc_block.values.x_defined, gc_block.values.y_defined, gc_block.values.z_defined, gc_block.values.f_defined);
             }
             break;
             
