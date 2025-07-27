@@ -6,6 +6,7 @@ Script minimalista para enviar G-code predefinido
 
 import serial
 import time
+import os
 
 # =============================================================================
 # CONFIGURACIÓN - MODIFICA ESTOS VALORES
@@ -16,7 +17,11 @@ PUERTO = "COM13"  # En Windows: COM3, COM4, etc. | En Linux: /dev/ttyUSB0, /dev/
 
 # G-code a enviar (una línea por string)
 # Dirección del archivo G-code
-GCODE_PATH = "examples/test_basico.gcode"
+GCODE_DIR = "gcode_files"
+
+def listar_archivos_gcode(directorio):
+    """Lista archivos .gcode en el directorio"""
+    return [f for f in os.listdir(directorio) if f.lower().endswith('.gcode')]
 
 def cargar_gcode_desde_archivo(path):
     """Carga líneas de G-code desde un archivo"""
@@ -24,6 +29,27 @@ def cargar_gcode_desde_archivo(path):
         lineas = [linea.strip() for linea in f if linea.strip() and not linea.strip().startswith(';')]
     return lineas
 
+# Mostrar menú de selección
+archivos = listar_archivos_gcode(GCODE_DIR)
+if not archivos:
+    print(f"No se encontraron archivos .gcode en '{GCODE_DIR}'")
+    exit(1)
+
+print("Archivos disponibles:")
+for idx, nombre in enumerate(archivos, 1):
+    print(f"  {idx}. {nombre}")
+
+while True:
+    try:
+        opcion = int(input(f"Selecciona archivo (1-{len(archivos)}): "))
+        if 1 <= opcion <= len(archivos):
+            break
+        else:
+            print("Opción inválida.")
+    except ValueError:
+        print("Ingresa un número válido.")
+
+GCODE_PATH = os.path.join(GCODE_DIR, archivos[opcion - 1])
 GCODE_PROGRAMA = cargar_gcode_desde_archivo(GCODE_PATH)
 
 # =============================================================================
