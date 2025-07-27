@@ -1,39 +1,318 @@
-22:08:11 **** Incremental Build of configuration Debug for project CNC ****
+19:29:10 **** Incremental Build of configuration Debug for project CNC ****
 make -j8 all 
-arm-none-eabi-gcc "../Core/Src/gcode_parser.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I../USB_DEVICE/App -I../USB_DEVICE/Target -I../Middlewares/ST/STM32_USB_Device_Library/Core/Inc -I../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/gcode_parser.d" -MT"Core/Src/gcode_parser.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/gcode_parser.o"
 arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I../USB_DEVICE/App -I../USB_DEVICE/Target -I../Middlewares/ST/STM32_USB_Device_Library/Core/Inc -I../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/main.o"
-In file included from ../Core/Src/gcode_parser.c:15:
-../Core/Src/gcode_parser.c: In function 'gc_execute_block':
-../Core/Src/gcode_parser.c:397:34: error: 'gc_modal_t' has no member named 'non_modal'
-  397 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_ENABLE)) {
-      |                                  ^
-../Core/Inc/gcode_parser.h:85:30: note: in definition of macro 'bit_istrue'
-   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
-      |                              ^
-../Core/Src/gcode_parser.c:397:46: error: 'NON_MODAL_MOTOR_ENABLE' undeclared (first use in this function)
-  397 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_ENABLE)) {
-      |                                              ^~~~~~~~~~~~~~~~~~~~~~
-../Core/Inc/gcode_parser.h:85:34: note: in definition of macro 'bit_istrue'
-   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
-      |                                  ^~~~
-../Core/Src/gcode_parser.c:397:46: note: each undeclared identifier is reported only once for each function it appears in
-  397 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_ENABLE)) {
-      |                                              ^~~~~~~~~~~~~~~~~~~~~~
-../Core/Inc/gcode_parser.h:85:34: note: in definition of macro 'bit_istrue'
-   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
-      |                                  ^~~~
-../Core/Src/gcode_parser.c:401:34: error: 'gc_modal_t' has no member named 'non_modal'
-  401 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_DISABLE)) {
-      |                                  ^
-../Core/Inc/gcode_parser.h:85:30: note: in definition of macro 'bit_istrue'
-   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
-      |                              ^
-../Core/Src/gcode_parser.c:401:46: error: 'NON_MODAL_MOTOR_DISABLE' undeclared (first use in this function)
-  401 |     if (bit_istrue(gc_block.modal.non_modal, NON_MODAL_MOTOR_DISABLE)) {
-      |                                              ^~~~~~~~~~~~~~~~~~~~~~~
-../Core/Inc/gcode_parser.h:85:34: note: in definition of macro 'bit_istrue'
-   85 | #define bit_istrue(x,mask) ((x & mask) != 0)
-      |                                  ^~~~
-make: *** [Core/Src/subdir.mk:37: Core/Src/gcode_parser.o] Error 1
-make: *** Waiting for unfinished jobs....
+../Core/Src/main.c: In function 'performHoming':
+../Core/Src/main.c:1069:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1069 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1073:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1073 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1101:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1101 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1108:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1108 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1112:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1112 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1139:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1139 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1146:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1146 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1150:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1150 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1177:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1177 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1188:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1188 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'stopProgramStorage':
+../Core/Src/main.c:1247:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1247 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'showProgramInfo':
+../Core/Src/main.c:1317:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1317 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1320:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1320 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1323:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1323 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1326:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1326 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1330:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1330 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1332:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1332 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1335:28: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1335 |             sendUSBMessage(msg, strlen(msg));
+      |                            ^~~
+      |                            |
+      |                            char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1339:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1339 |     sendUSBMessage("=== FIN INFORMACION ===\r\n", 34);
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1340:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1340 |     sendUSBMessage("ok\r\n", 5);
+      |                    ^~~~~~~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'runProgram':
+../Core/Src/main.c:1351:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1351 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1359:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1359 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1369:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1369 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1382:28: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1382 |             sendUSBMessage(msg, strlen(msg));
+      |                            ^~~
+      |                            |
+      |                            char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1385:28: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1385 |             sendUSBMessage(msg, strlen(msg));
+      |                            ^~~
+      |                            |
+      |                            char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1398:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1398 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1401:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1401 |     sendUSBMessage("ok\r\n", 5);
+      |                    ^~~~~~~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'runNextLine':
+../Core/Src/main.c:1412:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1412 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1418:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1418 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1424:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1424 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1435:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1435 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1439:24: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1439 |         sendUSBMessage(msg, strlen(msg));
+      |                        ^~~
+      |                        |
+      |                        char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'pauseProgram':
+../Core/Src/main.c:1452:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1452 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1454:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1454 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'stopProgram':
+../Core/Src/main.c:1466:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1466 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c:1468:20: warning: pointer targets in passing argument 1 of 'sendUSBMessage' differ in signedness [-Wpointer-sign]
+ 1468 |     sendUSBMessage(msg, strlen(msg));
+      |                    ^~~
+      |                    |
+      |                    char *
+../Core/Src/main.c:86:36: note: expected 'const uint8_t *' {aka 'const unsigned char *'} but argument is of type 'char *'
+   86 | void sendUSBMessage(const uint8_t* data, uint16_t length) {
+      |                     ~~~~~~~~~~~~~~~^~~~
+../Core/Src/main.c: In function 'runProgram':
+../Core/Src/main.c:1368:44: warning: '%s' directive writing up to 79 bytes into a region of size between 70 and 80 [-Wformat-overflow=]
+ 1368 |         sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+      |                                            ^~
+../Core/Src/main.c:1368:9: note: 'sprintf' output between 23 and 112 bytes into a destination of size 100
+ 1368 |         sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c: In function 'runNextLine':
+../Core/Src/main.c:1423:40: warning: '%s' directive writing up to 79 bytes into a region of size between 70 and 80 [-Wformat-overflow=]
+ 1423 |     sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+      |                                        ^~
+../Core/Src/main.c:1423:5: note: 'sprintf' output between 23 and 112 bytes into a destination of size 100
+ 1423 |     sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+arm-none-eabi-gcc -o "CNC.elf" @"objects.list"   -mcpu=cortex-m3 -T"C:\Users\bruno\STM32CubeIDE\Proyecto_Micro\CNC\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CNC.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/bin/ld.exe: CNC.elf section `.text' will not fit in region `FLASH'
+C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/bin/ld.exe: region `FLASH' overflowed by 7584 bytes
+collect2.exe: error: ld returned 1 exit status
+make: *** [makefile:71: CNC.elf] Error 1
 "make -j8 all" terminated with exit code 2. Build might be incomplete.

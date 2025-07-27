@@ -96,7 +96,7 @@ def enviar_comando(ser, comando):
             time.sleep(0.1)
         
         print(f"📥 {response.strip()}")
-        return True
+        return True if not "error" in response.lower() else False
         
     except Exception as e:
         print(f"❌ Error enviando comando: {e}")

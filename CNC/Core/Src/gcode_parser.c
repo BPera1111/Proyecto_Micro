@@ -378,10 +378,15 @@ uint8_t gc_execute_block(void) {
             break;
             
         case MOTION_MODE_CW_ARC:   // G2 - Arco horario
+            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
+                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.z, 1);  // 1 para sentido horario
+                break;
+            }
         case MOTION_MODE_CCW_ARC:  // G3 - Arco antihorario
-            // Por ahora no implementado, solo reportar
-            CDC_Transmit_FS((uint8_t*)"Comandos de arco G2/G3 no implementados\r\n", 42);
-            return STATUS_GCODE_UNSUPPORTED_COMMAND;
+            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
+                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.z, 0);  // 0 para sentido antihorario
+                break;
+            }
             break;
     }
     

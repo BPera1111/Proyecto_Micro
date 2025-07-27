@@ -47,6 +47,43 @@
 #define STEPS_PER_MM_Y 79      // Pasos por mm para eje Y
 #define STEPS_PER_MM_Z 3930    // Pasos por mm para eje Z
 
+// Definiciones de segmentos para arcos
+#define SEGMENTS 50
+#define PI 3.14159265358979323846
+
+// Método de transmisión USB CDC (puedes cambiar esto según tus necesidades)
+typedef enum {
+    USB_METHOD_DIRECT,      // Envío directo (puede perderse si está ocupado)
+    USB_METHOD_RETRY,       // Envío con reintentos (bloquea hasta enviar)
+    USB_METHOD_QUEUED       // Envío mediante cola (recomendado)
+} USBTransmitMethod_t;
+
+#define USB_TRANSMIT_METHOD USB_METHOD_QUEUED  // ← Cambiar aquí el método
+
+// Función auxiliar para envío USB según el método configurado
+void sendUSBText(const char* message) {
+    uint16_t len = strlen(message);
+    CDC_Transmit_Queued((uint8_t*)message, len);
+    
+    // switch (USB_TRANSMIT_METHOD) {
+    //     case USB_METHOD_DIRECT:
+    //         sendUSBText((uint8_t*)message);
+    //         break;
+            
+    //     case USB_METHOD_RETRY:
+    //         sendUSBText_WithRetry((uint8_t*)message, len, 3, 10);  // 3 reintentos, 10ms
+    //         break;
+            
+    //     case USB_METHOD_QUEUED:
+    //         if (!CDC_Transmit_Queued((uint8_t*)message, len)) {
+    //             // Si la cola está llena, usar método directo como fallback
+    //             sendUSBText((uint8_t*)message);
+    //         }
+    //         break;
+    // }
+}
+
+
 // Códigos de alarma específicos de la máquina
 #define ALARM_HARD_LIMIT        1   // Hard limit activo
 #define ALARM_SOFT_LIMIT        2   // Soft limit activo
@@ -69,7 +106,8 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 extern UART_HandleTypeDef huart1;
-char inputBuffer[100];
+// Declarar buffer global
+static char outputBuffer[200];
 int bufferIndex = 0;
 bool commandComplete = false;
 int32_t currentX, currentY, currentZ;
@@ -125,16 +163,13 @@ void loop(void);
 void setup(void);
 void delay_us(uint32_t us);
 // void moveAxes(float x, float y, float z);
-float extractParam(const char* command, char param);
 void processGcode(const char* command);
-void readUSBCommands(void);
 void X_move(int32_t steps, bool dir);
 void Y_move(int32_t steps, bool dir);
 void Z_move(int32_t steps, bool dir);
 void X_stepOnce(void);
 void Y_stepOnce(void);
 void Z_stepOnce(void);
-float extractParameter(const char* command, char param);
 void performHoming(void);
 bool isEndstopPressed(char axis);
 void enableSteppers(void);
@@ -145,18 +180,19 @@ void report_status_message(uint8_t status_code);
 // Funciones para control de feed rate
 uint32_t calculateStepDelay(float feedRate, float distance_mm);
 void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapid);
+void arc_move_r(float x_end, float y_end, float r, int clockwise);  // Movimiento de arco con radio
 
 // Funciones para manejo de programa G-code
 void startProgramStorage(void);
 void stopProgramStorage(void);
 bool addLineToProgram(const char* line);
 void clearProgram(void);
-void showProgramInfo(void);
 void runProgram(void);
 void runNextLine(void);
 void pauseProgram(void);
 void stopProgram(void);
 void showHelp(void);
+void showQueueStatus(void);  // Nueva función de diagnóstico
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -175,21 +211,25 @@ int main(void)
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();  // Inicia USB CDC
 
+  // Inicializar cola de transmisión USB CDC
+  CDC_TxQueue_Init();
+
   // Inicialización similar al setup() de Arduino
   setup();
 
-  // Envío inicial
-  uint8_t mensaje[] = "G-code listo\r\n";
-  CDC_Transmit_FS(mensaje, sizeof(mensaje) - 1);
+  // Envío inicial usando cola
+  CDC_Transmit_Queued((uint8_t*)"G-code listo\r\n", 14); 
   
   #if DEBUG_MESSAGES
   // Mensaje adicional de debug
-  uint8_t debug_msg[] = "Sistema iniciado - Esperando comandos...\r\n";
-  CDC_Transmit_FS(debug_msg, sizeof(debug_msg) - 1);
+  CDC_Transmit_Queued((uint8_t*)"Sistema iniciado - Esperando comandos...\r\n", 42);
   #endif
 
   while (1)
   {
+    // Procesar cola de transmisión USB CDC
+    CDC_TxQueue_Process();
+    
     // Equivalente al loop() de Arduino
     loop();
     
@@ -424,18 +464,6 @@ void Z_move(int32_t steps, bool dir) {
     HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
 }
 
-void readUSBCommands(void) {
-    // Esta función se implementará con callback de USB CDC
-    // Por ahora vacía, se procesará en el callback
-}
-
-float extractParameter(const char* command, char param) {
-    char* ptr = strchr(command, param);
-    if (ptr) {
-        return atof(ptr + 1);
-    }
-    return NAN; // Not a Number
-}
 
 /**
   * @brief  Calcula el delay entre pasos basado en el feed rate
@@ -466,110 +494,6 @@ uint32_t calculateStepDelay(float feedRate, float distance_mm) {
     
     return delay_us;
 }
-
-// void moveAxes(float x, float y, float z) {
-//     // Calcular posiciones objetivo en pasos
-//     int32_t targetX = !isnan(x) ? (int32_t)(x * STEPS_PER_MM_X) : currentX;
-//     int32_t targetY = !isnan(y) ? (int32_t)(y * STEPS_PER_MM_Y) : currentY;
-//     int32_t targetZ = !isnan(z) ? (int32_t)(z * STEPS_PER_MM_Z) : currentZ;
-    
-//     // Calcular diferencias (pasos relativos)
-//     int32_t deltaX = targetX - currentX;
-//     int32_t deltaY = targetY - currentY;
-//     int32_t deltaZ = targetZ - currentZ;
-    
-//     // Determinar direcciones
-//     bool dirX = (deltaX >= 0);
-//     bool dirY = (deltaY >= 0);
-//     bool dirZ = (deltaZ >= 0);
-    
-//     // Configurar direcciones de los motores
-//     if (deltaX != 0) HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dirX ? GPIO_PIN_SET : GPIO_PIN_RESET);
-//     if (deltaY != 0) HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dirY ? GPIO_PIN_SET : GPIO_PIN_RESET);
-//     if (deltaZ != 0) HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dirZ ? GPIO_PIN_RESET : GPIO_PIN_SET);
-    
-//     // Convertir a valores absolutos para el algoritmo
-//     deltaX = abs(deltaX);
-//     deltaY = abs(deltaY);
-//     deltaZ = abs(deltaZ);
-    
-//     // Mostrar información del movimiento
-//     char msg[120];
-//     // Convertir floats a enteros para evitar problemas de printf
-//     float pos_x = !isnan(x) ? x : currentX/(float)STEPS_PER_MM_X;
-//     float pos_y = !isnan(y) ? y : currentY/(float)STEPS_PER_MM_Y;
-//     float pos_z = !isnan(z) ? z : currentZ/(float)STEPS_PER_MM_Z;
-    
-//     int x_int = (int)pos_x;
-//     int x_dec = (int)((pos_x - x_int) * 100);
-//     int y_int = (int)pos_y;
-//     int y_dec = (int)((pos_y - y_int) * 100);
-//     int z_int = (int)pos_z;
-//     int z_dec = (int)((pos_z - z_int) * 100);
-    
-//     sprintf(msg, "Movimiento interpolado: X=%d.%02d(%ld) Y=%d.%02d(%ld) Z=%d.%02d(%ld)\r\n", 
-//            x_int, abs(x_dec), deltaX,
-//            y_int, abs(y_dec), deltaY,
-//            z_int, abs(z_dec), deltaZ);
-//     CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-//     // Algoritmo de interpolación lineal 3D (Bresenham modificado)
-//     int32_t maxSteps = deltaX;
-//     if (deltaY > maxSteps) maxSteps = deltaY;
-//     if (deltaZ > maxSteps) maxSteps = deltaZ;
-    
-//     if (maxSteps == 0) return; // No hay movimiento
-    
-//     // Variables para el algoritmo de Bresenham 3D
-//     int32_t errorX = maxSteps / 2;
-//     int32_t errorY = maxSteps / 2;
-//     int32_t errorZ = maxSteps / 2;
-    
-//     // Encender LED indicador de movimiento
-//     HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-    
-//     // Ejecutar pasos interpolados
-//     for (int32_t step = 0; step < maxSteps; step++) {
-//         bool stepX = false, stepY = false, stepZ = false;
-        
-//         // Algoritmo de Bresenham para X
-//         errorX += deltaX;
-//         if (errorX >= maxSteps) {
-//             errorX -= maxSteps;
-//             stepX = true;
-//         }
-        
-//         // Algoritmo de Bresenham para Y
-//         errorY += deltaY;
-//         if (errorY >= maxSteps) {
-//             errorY -= maxSteps;
-//             stepY = true;
-//         }
-        
-//         // Algoritmo de Bresenham para Z
-//         errorZ += deltaZ;
-//         if (errorZ >= maxSteps) {
-//             errorZ -= maxSteps;
-//             stepZ = true;
-//         }
-        
-//         // Ejecutar pasos simultáneamente
-//         if (stepX) X_stepOnce();
-//         if (stepY) Y_stepOnce();
-//         if (stepZ) Z_stepOnce();
-        
-//         // Delay entre pasos
-//         delay_us(STEP_DELAY_US);
-//     }
-    
-//     // Apagar LED
-//     HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    
-//     // Actualizar posiciones actuales
-//     currentX = targetX;
-//     currentY = targetY;
-//     currentZ = targetZ;
-// }
 
 /**
   * @brief  Movimiento de ejes con control de feed rate (versión avanzada)
@@ -623,14 +547,13 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     
     // Debug: verificar valores antes del mensaje
     #if DEBUG_MESSAGES
-    char debug_msg[100];
-    snprintf(debug_msg, sizeof(debug_msg), "[DEBUG] x=%.2f y=%.2f z=%.2f rate=%.1f dist=%.2f\r\n", 
+    snprintf(outputBuffer, sizeof(outputBuffer), "[DEBUG] x=%.2f y=%.2f z=%.2f rate=%.1f dist=%.2f\r\n", 
              x, y, z, effective_feedrate, total_distance);
-    CDC_Transmit_FS((uint8_t*)debug_msg, strlen(debug_msg));
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
     #endif
     
     // Mostrar información del movimiento con validación de valores
-    char msg[200];
     float display_x = !isnan(x) ? x : (currentX / (float)STEPS_PER_MM_X);
     float display_y = !isnan(y) ? y : (currentY / (float)STEPS_PER_MM_Y);
     float display_z = !isnan(z) ? z : (currentZ / (float)STEPS_PER_MM_Z);
@@ -646,8 +569,8 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     int f_dec = (int)((effective_feedrate - f_int) * 10);
     int d_int = (int)total_distance;
     int d_dec = (int)((total_distance - d_int) * 100);
-    
-    snprintf(msg, sizeof(msg), "%s: X=%d.%02d Y=%d.%02d Z=%d.%02d F=%d.%d D=%d.%02dmm T=%lduS\r\n", 
+
+    snprintf(outputBuffer, sizeof(outputBuffer), "%s: X=%d.%02d Y=%d.%02d Z=%d.%02d F=%d.%d D=%d.%02dmm T=%lduS\r\n", 
            isRapid ? "G0 RAPID" : "G1 LINEAR",
            x_int, abs(x_dec),
            y_int, abs(y_dec), 
@@ -655,8 +578,8 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
            f_int, abs(f_dec), 
            d_int, abs(d_dec), 
            (unsigned long)step_delay);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
     // Algoritmo de interpolación lineal 3D (Bresenham modificado)
     int32_t maxSteps = deltaX;
     if (deltaY > maxSteps) maxSteps = deltaY;
@@ -716,6 +639,67 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     currentZ = targetZ;
 }
 
+
+
+void arc_move_r(float x_end, float y_end, float r, int clockwise) {
+    float x0 = currentX;
+    float y0 = currentY;
+    float x1 = x_end * STEPS_PER_MM_X;
+    float y1 = y_end * STEPS_PER_MM_Y;
+    r = r * STEPS_PER_MM_X; // Convertir radio a pasos
+
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float d = sqrt(dx * dx + dy * dy);
+
+    if (d > 2 * fabs(r)) {
+        // printf("Error: el radio es muy pequeño para unir los puntos.\n");
+        sendUSBText("Error: el radio es muy pequeño para unir los puntos.\r\n");
+        return;
+    }
+
+    // Punto medio entre inicio y fin
+    float mx = (x0 + x1) / 2;
+    float my = (y0 + y1) / 2;
+
+    // Altura desde el punto medio al centro
+    float h = sqrt(r * r - (d / 2) * (d / 2));
+
+    // Vector perpendicular normalizado
+    float nx = -dy / d;
+    float ny = dx / d;
+
+    // Determinar centro en una de las dos direcciones posibles
+    float cx, cy;
+
+    if (clockwise) {
+        cx = mx + nx * h;
+        cy = my + ny * h;
+    } else {
+        cx = mx - nx * h;
+        cy = my - ny * h;
+    }
+
+    // Ángulos
+    float start_angle = atan2(y0 - cy, x0 - cx);
+    float end_angle = atan2(y1 - cy, x1 - cx);
+    float total_angle = end_angle - start_angle;
+
+    if (clockwise && total_angle > 0) {
+        total_angle -= 2 * PI;
+    } else if (!clockwise && total_angle < 0) {
+        total_angle += 2 * PI;
+    }
+
+    for (int i = 1; i <= SEGMENTS; i++) {
+        float angle = start_angle + total_angle * ((float)i / SEGMENTS);
+        float x = cx + r * cos(angle);
+        float y = cy + r * sin(angle);
+        moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
+    }
+}
+
+
 void processGcode(const char* command) {
     // Comandos especiales para control de programa
     if (strncmp(command, "PROGRAM_START", 13) == 0) {
@@ -728,10 +712,6 @@ void processGcode(const char* command) {
     }
     else if (strncmp(command, "PROGRAM_RUN", 11) == 0) {
         runProgram();
-        return;
-    }
-    else if (strncmp(command, "PROGRAM_INFO", 12) == 0) {
-        showProgramInfo();
         return;
     }
     else if (strncmp(command, "PROGRAM_CLEAR", 13) == 0) {
@@ -750,6 +730,10 @@ void processGcode(const char* command) {
         showHelp();
         return;
     }
+    else if (strncmp(command, "QUEUE_STATUS", 12) == 0) {
+        showQueueStatus();
+        return;
+    }
     else if (strncmp(command, "FIN", 3) == 0 || strncmp(command, "fin", 3) == 0) {
         if (isStoringProgram) {
             stopProgramStorage();
@@ -760,9 +744,9 @@ void processGcode(const char* command) {
     // Si estamos en modo almacenamiento, agregar la línea al programa
     if (isStoringProgram) {
         if (addLineToProgram(command)) {
-            CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+            sendUSBText("ok\r\n");
         } else {
-            CDC_Transmit_FS((uint8_t*)"error: buffer lleno\r\n", 21);
+            sendUSBText("error: buffer lleno\r\n");
         }
         return;
     }
@@ -779,7 +763,6 @@ void processGcode(const char* command) {
         // Verificar si es un comando que requiere respuesta especial
         if (strncmp(command, "M114", 4) == 0) {
             // M114 - Reportar posición actual
-            char posMsg[100];
             float xPos = currentX / (float)STEPS_PER_MM_X;
             float yPos = currentY / (float)STEPS_PER_MM_Y;
             float zPos = currentZ / (float)STEPS_PER_MM_Z;
@@ -791,10 +774,11 @@ void processGcode(const char* command) {
             int y_dec = (int)((yPos - y_int) * 100);
             int z_int = (int)zPos;
             int z_dec = (int)((zPos - z_int) * 100);
-            
-            sprintf(posMsg, "X:%d.%02d Y:%d.%02d Z:%d.%02d\r\n", 
+
+            snprintf(outputBuffer, sizeof(outputBuffer), "X:%d.%02d Y:%d.%02d Z:%d.%02d\r\n", 
                    x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
-            CDC_Transmit_FS((uint8_t*)posMsg, strlen(posMsg));
+            sendUSBText(outputBuffer);
+
         } else if (strncmp(command, "M503", 4) == 0) {
             // M503 - Mostrar configuración
             showConfiguration();
@@ -806,66 +790,22 @@ void processGcode(const char* command) {
 }
 
 void loop(void) {
-    // Variables estáticas para controlar el spam de mensajes
-    static uint32_t lastEndstopCheck = 0;
-    static bool endstopXWasPressed = false; 
-    static bool endstopYWasPressed = false;
-    static bool endstopZWasPressed = false;
-    
-    uint32_t currentTime = HAL_GetTick();
-
     #if DEBUG_MESSAGES
     // Heartbeat para confirmar que el sistema está funcionando
     static uint32_t lastHeartbeat = 0;
     // Debug: mostrar tiempo actual
     char debugMsg[50];
     sprintf(debugMsg, "[DEBUG] Tiempo actual: %lu\r\n", currentTime);
-    CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+    sendUSBText(debugMsg);
     
 
     // Heartbeat cada 5 segundos para confirmar que está vivo
     if (currentTime - lastHeartbeat > 5000) {
         lastHeartbeat = currentTime;
-        CDC_Transmit_FS((uint8_t*)"[HEARTBEAT] Sistema activo\r\n", 29);
+        sendUSBText("[HEARTBEAT] Sistema activo\r\n");
     }
     #endif
-    // Verificar fines de carrera solo cada 10ms para evitar spam
-    if (currentTime - lastEndstopCheck > 10) {
-        lastEndstopCheck = currentTime;
-        
-        // Fin de carrera X - solo mensaje cuando cambia de estado
-        bool endstopX = (HAL_GPIO_ReadPin(GPIOB, X_MIN_PIN) == GPIO_PIN_RESET);
-        if (endstopX && !endstopXWasPressed) {
-            CDC_Transmit_FS((uint8_t*)"Fin de carrera X activado\r\n", 27);
-            // Opcional: detener motor X o hacer homing
-            // X_move(100, false); // Retroceder 100 pasos
-            endstopXWasPressed = true;
-        } else if (!endstopX && endstopXWasPressed) {
-            CDC_Transmit_FS((uint8_t*)"Fin de carrera X desactivado\r\n", 30);
-            endstopXWasPressed = false;
-        }
-        
-        // Fin de carrera Y
-        bool endstopY = (HAL_GPIO_ReadPin(GPIOB, Y_MIN_PIN) == GPIO_PIN_RESET);
-        if (endstopY && !endstopYWasPressed) {
-            CDC_Transmit_FS((uint8_t*)"Fin de carrera Y activado\r\n", 27);
-            endstopYWasPressed = true;
-        } else if (!endstopY && endstopYWasPressed) {
-            CDC_Transmit_FS((uint8_t*)"Fin de carrera Y desactivado\r\n", 30);
-            endstopYWasPressed = false;
-        }
-        
-        // Fin de carrera Z
-        bool endstopZ = (HAL_GPIO_ReadPin(GPIOB, Z_MIN_PIN) == GPIO_PIN_RESET);
-        if (endstopZ && !endstopZWasPressed) {
-            CDC_Transmit_FS((uint8_t*)"Fin de carrera Z activado\r\n", 27);
-            endstopZWasPressed = true;
-        } else if (!endstopZ && endstopZWasPressed) {
-            CDC_Transmit_FS((uint8_t*)"Fin de carrera Z desactivado\r\n", 30);
-            endstopZWasPressed = false;
-        }
-    }
-
+    
     // Procesar comandos USB CDC - SOLO cuando hay un comando completo
     if (usbCommandComplete) {
         #if DEBUG_MESSAGES
@@ -873,7 +813,7 @@ void loop(void) {
         char debugStatus[200];  // Buffer más grande para evitar overflow
         sprintf(debugStatus, "[DEBUG] usbCommandComplete=true, bufferIndex=%d, buffer=[%s]\r\n", 
                 usbBufferIndex, usbBuffer);
-        CDC_Transmit_FS((uint8_t*)debugStatus, strlen(debugStatus));
+        sendUSBText(debugStatus);
         #endif
         
         // Verificar que el buffer no esté vacío y contenga algo más que espacios
@@ -888,9 +828,9 @@ void loop(void) {
         if (hasValidCommand && usbBufferIndex > 0) {
             #if DEBUG_MESSAGES
             // Debug: confirmar que llegó el comando (buffer más grande para evitar warning)
-            char debugMsg[120];
-            sprintf(debugMsg, ">>> [%s]\r\n", usbBuffer);
-            CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+            sprintf(outputBuffer, ">>> [%s]\r\n", usbBuffer);
+            sendUSBText(outputBuffer);
+            memset(outputBuffer, 0, sizeof(outputBuffer));
             #endif
             
             processGcode(usbBuffer);
@@ -955,9 +895,10 @@ void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defin
     int z_int = (int)pos_z;
     int z_dec = (int)((pos_z - z_int) * 100);
     
-    sprintf(setMsg, "Posición establecida: X%d.%02d Y%d.%02d Z%d.%02d\r\n",
+    sprintf(outputBuffer, "Posición establecida: X%d.%02d Y%d.%02d Z%d.%02d\r\n",
            x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
-    CDC_Transmit_FS((uint8_t*)setMsg, strlen(setMsg));
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
 }
 
 // Callback para movimiento de ejes
@@ -979,6 +920,11 @@ void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_def
     moveAxesWithFeedRate(target_x, target_y, target_z, rapidRate, true);
 }
 
+void moveAxesArcCallback(float x, float y, float r, int clockwise) {
+    // Llamar a la función de movimiento de arco
+    arc_move_r(x, y, r, clockwise);
+}
+
 // Callback específico para movimiento lineal G1 con feed rate
 void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined) {
     float target_x = x_defined ? x : NAN;
@@ -994,11 +940,6 @@ void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_de
 }
 // La función CDC_Receive_FS maneja la recepción de datos
 
-// Función compatible con el código original (mantener para compatibilidad)
-float extractParam(const char* command, char param) {
-    return extractParameter(command, param);
-}
-
 // Función de compatibilidad UART (no se usa en este proyecto)
 // El proyecto usa USB CDC para comunicación
 
@@ -1007,39 +948,45 @@ float extractParam(const char* command, char param) {
 
 // Función para mostrar la configuración actual del sistema
 void showConfiguration(void) {
-    char msg[200];
     
-    CDC_Transmit_FS((uint8_t*)"=== CONFIGURACIÓN CNC ===\r\n", 28);
-    
-    sprintf(msg, "Steps per mm X: %d\r\n", STEPS_PER_MM_X);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    sprintf(msg, "Steps per mm Y: %d\r\n", STEPS_PER_MM_Y);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    sprintf(msg, "Steps per mm Z: %d\r\n", STEPS_PER_MM_Z);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    sprintf(msg, "Step delay: %d us\r\n", STEP_DELAY_US);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    sendUSBText("=== CONFIGURACIÓN CNC ===\r\n");
+
+    sprintf(outputBuffer, "Steps per mm X: %d\r\n", STEPS_PER_MM_X);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    sprintf(outputBuffer, "Steps per mm Y: %d\r\n", STEPS_PER_MM_Y);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    sprintf(outputBuffer, "Steps per mm Z: %d\r\n", STEPS_PER_MM_Z);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    sprintf(outputBuffer, "Step delay: %d us\r\n", STEP_DELAY_US);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
     
     // Convertir feed rate actual a enteros
     int feed_int = (int)currentFeedRate;
     int feed_dec = (int)((currentFeedRate - feed_int) * 10);
-    sprintf(msg, "Feed rate actual: %d.%d mm/min\r\n", feed_int, feed_dec);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Feed rate actual: %d.%d mm/min\r\n", feed_int, feed_dec);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Convertir velocidades a enteros para mostrar
     int rapid_int = (int)rapidRate;
     int rapid_dec = (int)((rapidRate - rapid_int) * 10);
-    sprintf(msg, "Velocidad rápida (G0): %d.%d mm/min\r\n", rapid_int, rapid_dec);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    sprintf(outputBuffer, "Velocidad rápida (G0): %d.%d mm/min\r\n", rapid_int, rapid_dec);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
     
     int max_int = (int)maxFeedRate;
     int max_dec = (int)((maxFeedRate - max_int) * 10);
-    sprintf(msg, "Velocidad máxima: %d.%d mm/min\r\n", max_int, max_dec);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Velocidad máxima: %d.%d mm/min\r\n", max_int, max_dec);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Mostrar posición actual
     float xPos = currentX / (float)STEPS_PER_MM_X;
     float yPos = currentY / (float)STEPS_PER_MM_Y;
@@ -1052,12 +999,12 @@ void showConfiguration(void) {
     int y_dec = (int)((yPos - y_int) * 100);
     int z_int = (int)zPos;
     int z_dec = (int)((zPos - z_int) * 100);
-    
-    sprintf(msg, "Posición actual: X%d.%02d Y%d.%02d Z%d.%02d mm\r\n", 
+
+    sprintf(outputBuffer, "Posición actual: X%d.%02d Y%d.%02d Z%d.%02d mm\r\n",
            x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    CDC_Transmit_FS((uint8_t*)"=== FIN CONFIGURACIÓN ===\r\n", 28);
+    sendUSBText((uint8_t*)outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    sendUSBText("=== FIN CONFIGURACIÓN ===\r\n");
 }
 
 // Función para verificar si un final de carrera está presionado
@@ -1079,15 +1026,18 @@ void performHoming(void) {
     char msg[80];
     
     // Enviar mensaje de inicio de homing
-    CDC_Transmit_FS((uint8_t*)"Iniciando secuencia de homingg...\r\n", 34);
+    sendUSBText("Iniciando secuencia de homingg...\r\n");
     
     // FASE 1: Movimiento rápido hacia los finales de carrera
-    sprintf(msg, "Fase 1: Buscando finales de carrera...\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Fase 1: Buscando finales de carrera...\r\n");
+    // sendUSBText((uint8_t*)msg);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Homing del eje X
-    sprintf(msg, "Homing eje X...\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    sprintf(outputBuffer, "Homing eje X...\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
 
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
     // Mover hacia el final de carrera X (dirección negativa)
@@ -1100,27 +1050,37 @@ void performHoming(void) {
     
     // Retroceder un poco del final de carrera X
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_SET); // Dirección positiva
-    for (int i = 0; i < 10; i++) { // Retroceder 50 pasos
-        if (!isEndstopPressed('X')) break; // Salir cuando se libere el endstop
+    for (int i = 0; i < 2*STEPS_PER_MM_X; i++) { // Retroceder 50 pasos
+        //if (!isEndstopPressed('X')); // Salir cuando se libere el endstop
         X_stepOnce();
         delay_us(STEP_DELAY_US);
     }
     
     // FASE 2: Movimiento lento de precisión para X
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa nuevamente
-    while (!isEndstopPressed('X')) {
+    for (int i = 0; i < 2*STEPS_PER_MM_X; i++) { // Retroceder 50 pasos
+        //if (!isEndstopPressed('X')); // Salir cuando se libere el endstop
         X_stepOnce();
-        delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
+        delay_us(STEP_DELAY_US * 3);
+    }
+    if (!isEndstopPressed('X')) {
+        sprintf(outputBuffer, "Error: Final de carrera X no presionado\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        // Activar interrupción o LED de error
+        return; // Salir si no se presionó el endstop
     }
     
     currentX = 0; // Establecer posición home
-    sprintf(msg, "Eje XX en posición home\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Eje X en posición home\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Homing del eje Y
-    sprintf(msg, "Homing eje Y...\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Homing eje Y...\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Mover hacia el final de carrera Y (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
     while (!isEndstopPressed('Y')) {
@@ -1131,56 +1091,77 @@ void performHoming(void) {
     
     // Retroceder un poco del final de carrera Y
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_SET); // Dirección positiva
-    for (int i = 0; i < 10; i++) { // Retroceder 50 pasos
-        if (!isEndstopPressed('Y')) break;
+    for (int i = 0; i < 2*STEPS_PER_MM_Y; i++) { // Retroceder 50 pasos
+        //if (!isEndstopPressed('Y'));
         Y_stepOnce();
         delay_us(STEP_DELAY_US);
     }
     
     // FASE 2: Movimiento lento de precisión para Y
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa nuevamente
-    while (!isEndstopPressed('Y')) {
+    for (int i = 0; i < 2*STEPS_PER_MM_Y; i++) { // Retroceder 50 pasos
+        //if (!isEndstopPressed('Y'));
         Y_stepOnce();
         delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
     }
+    if (!isEndstopPressed('Y')) {
+        sprintf(outputBuffer, "Error: Final de carrera Y no presionado\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        // Activar interrupción o LED de error
+        return; // Salir si no se presionó el endstop
+    }
     
     currentY = 0; // Establecer posición home
-    sprintf(msg, "Eje Y en posición home\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Eje Y en posición home\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Homing del eje Z
-    sprintf(msg, "Homing eje Z...\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Homing eje Z...\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Mover hacia el final de carrera Z (dirección negativa)
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
     while (!isEndstopPressed('Z')) {
         Z_stepOnce();
-        delay_us(STEP_DELAY_US);
+        delay_us(STEP_DELAY_US/2);
         //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
     }
     
     // Retroceder un poco del final de carrera Z
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_RESET); // Dirección positiva
-    for (int i = 0; i < 10; i++) { // Retroceder 50 pasos
-        if (!isEndstopPressed('Z')) break;
+    for (int i = 0; i < 2*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
+        // if (!isEndstopPressed('Z'));
         Z_stepOnce();
-        delay_us(STEP_DELAY_US);
+        delay_us(STEP_DELAY_US/2);
     }
     
     // FASE 2: Movimiento lento de precisión para Z
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa nuevamente
-    while (!isEndstopPressed('Z')) {
+    for (int i = 0; i < 2*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
+        // if (!isEndstopPressed('Z'));
         Z_stepOnce();
         delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
     }
+    if (!isEndstopPressed('Z')) {
+        sprintf(outputBuffer, "Error: Final de carrera Z no presionado\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        // Activar interrupción o LED de error
+        return; // Salir si no se presionó el endstop
+    }
     
     currentZ = 0; // Establecer posición home
-    sprintf(msg, "Eje Z en posición home\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+    sprintf(outputBuffer, "Eje Z en posición home\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Mensaje final
-    CDC_Transmit_FS((uint8_t*)"Homing completado. Todos los ejes en posición home.\r\n", 54);
+    sprintf(outputBuffer, "Homing completado. Todos los ejes en posición home.\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
 }
 
 /**
@@ -1223,9 +1204,9 @@ void startProgramStorage(void) {
         memset(gcodeProgram[i], 0, MAX_LINE_LENGTH);
     }
     
-    CDC_Transmit_FS((uint8_t*)"Modo almacenamiento activado. Envie comandos G-code.\r\n", 55);
-    CDC_Transmit_FS((uint8_t*)"Termine con 'FIN' o 'PROGRAM_STOP'\r\n", 37);
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+    sendUSBText("Modo almacenamiento activado. Envie comandos G-code.\r\n");
+    sendUSBText("Termine con 'FIN' o 'PROGRAM_STOP'\r\n");
+    sendUSBText("ok\r\n");
 }
 
 /**
@@ -1237,15 +1218,15 @@ void stopProgramStorage(void) {
     
     if (programLineCount > 0) {
         isProgramLoaded = true;
-        char msg[100];
-        sprintf(msg, "Programa cargado: %d lineas almacenadas\r\n", programLineCount);
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        CDC_Transmit_FS((uint8_t*)"Use 'PROGRAM_RUN' para ejecutar o 'PROGRAM_INFO' para ver detalles\r\n", 68);
+        sprintf(outputBuffer, "Programa cargado: %d lineas almacenadas\r\n", programLineCount);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        sendUSBText("Use 'PROGRAM_RUN' para ejecutar o 'PROGRAM_INFO' para ver detalles\r\n");
     } else {
-        CDC_Transmit_FS((uint8_t*)"No se almacenaron lineas\r\n", 26);
+        sendUSBText("No se almacenaron lineas\r\n");
     }
     
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+    sendUSBText("ok\r\n");
 }
 
 /**
@@ -1297,43 +1278,10 @@ void clearProgram(void) {
         memset(gcodeProgram[i], 0, MAX_LINE_LENGTH);
     }
     
-    CDC_Transmit_FS((uint8_t*)"Programa limpiado\r\n", 19);
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+    sendUSBText("Programa limpiado\r\n");
+    sendUSBText("ok\r\n");
 }
 
-/**
-  * @brief  Muestra información del programa cargado
-  * @retval None
-  */
-void showProgramInfo(void) {
-    char msg[150];
-    
-    sprintf(msg, "=== INFORMACION DEL PROGRAMA ===\r\n");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    sprintf(msg, "Lineas almacenadas: %d/%d\r\n", programLineCount, MAX_GCODE_LINES);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    sprintf(msg, "Programa cargado: %s\r\n", isProgramLoaded ? "SI" : "NO");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    sprintf(msg, "Estado: %s\r\n", isProgramRunning ? "EJECUTANDO" : "DETENIDO");
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    if (isProgramLoaded && programLineCount > 0) {
-        sprintf(msg, "Linea actual: %d\r\n", currentExecutingLine + 1);
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        
-        CDC_Transmit_FS((uint8_t*)"\r\nContenido del programa:\r\n", 26);
-        for (int i = 0; i < programLineCount; i++) {
-            sprintf(msg, "%d: %s\r\n", i + 1, gcodeProgram[i]);
-            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        }
-    }
-    
-    CDC_Transmit_FS((uint8_t*)"=== FIN INFORMACION ===\r\n", 26);
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
-}
 
 /**
   * @brief  Ejecuta el programa completo almacenado
@@ -1341,27 +1289,30 @@ void showProgramInfo(void) {
   */
 void runProgram(void) {
     if (!isProgramLoaded || programLineCount == 0) {
-        CDC_Transmit_FS((uint8_t*)"error: No hay programa cargado\r\n", 33);
+        sprintf(outputBuffer, "error: No hay programa cargado\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
         return;
     }
     
     isProgramRunning = true;
     currentExecutingLine = 0;
-    
-    char msg[100];
-    sprintf(msg, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+
+    sprintf(outputBuffer, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
     // Ejecutar todas las líneas secuencialmente
     for (currentExecutingLine = 0; currentExecutingLine < programLineCount; currentExecutingLine++) {
         if (!isProgramRunning) {
-            CDC_Transmit_FS((uint8_t*)"Programa detenido por el usuario\r\n", 34);
+            sendUSBText((uint8_t*)"Programa detenido por el usuario\r\n");
             break;
         }
-        
-        sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-        
+
+        sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+
         // Crear una copia temporal para evitar recursión
         char temp_command[MAX_LINE_LENGTH];
         strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
@@ -1372,10 +1323,13 @@ void runProgram(void) {
         
         // Mostrar resultado
         if (status == STATUS_OK) {
-            CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+            sprintf(outputBuffer, "ok\r\n");
+            sendUSBText(outputBuffer);
+            memset(outputBuffer, 0, sizeof(outputBuffer));
         } else {
-            sprintf(msg, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
-            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
+            sendUSBText(outputBuffer);
+            memset(outputBuffer, 0, sizeof(outputBuffer));
             isProgramRunning = false;
             break;
         }
@@ -1387,10 +1341,12 @@ void runProgram(void) {
     isProgramRunning = false;
     
     if (currentExecutingLine >= programLineCount) {
-        CDC_Transmit_FS((uint8_t*)"Programa completado exitosamente\r\n", 34);
+        sprintf(outputBuffer, "Programa completado exitosamente\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
     }
-    
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+
+    sendUSBText("ok\r\n");
 }
 
 /**
@@ -1399,20 +1355,23 @@ void runProgram(void) {
   */
 void runNextLine(void) {
     if (!isProgramLoaded || programLineCount == 0) {
-        CDC_Transmit_FS((uint8_t*)"error: No hay programa cargado\r\n", 33);
+        sprintf(outputBuffer, "error: No hay programa cargado\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
         return;
     }
     
     if (currentExecutingLine >= programLineCount) {
-        CDC_Transmit_FS((uint8_t*)"Programa completado\r\n", 21);
+        sprintf(outputBuffer, "Programa completado\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
         isProgramRunning = false;
         return;
     }
-    
-    char msg[150];
-    sprintf(msg, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
+
+    sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
     // Ejecutar el comando
     char temp_command[MAX_LINE_LENGTH];
     strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
@@ -1421,11 +1380,14 @@ void runNextLine(void) {
     uint8_t status = gc_execute_line(temp_command);
     
     if (status == STATUS_OK) {
-        CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+        sprintf(outputBuffer, "ok\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
         currentExecutingLine++;
     } else {
-        sprintf(msg, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
         isProgramRunning = false;
     }
 }
@@ -1436,8 +1398,12 @@ void runNextLine(void) {
   */
 void pauseProgram(void) {
     isProgramRunning = false;
-    CDC_Transmit_FS((uint8_t*)"Programa pausado\r\n", 18);
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+    sprintf(outputBuffer, "Programa pausado\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    sprintf(outputBuffer, "ok\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
 }
 
 /**
@@ -1447,8 +1413,12 @@ void pauseProgram(void) {
 void stopProgram(void) {
     isProgramRunning = false;
     currentExecutingLine = 0;
-    CDC_Transmit_FS((uint8_t*)"Programa detenido\r\n", 19);
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+    sprintf(outputBuffer, "Programa detenido\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    sprintf(outputBuffer, "ok\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
 }
 
 /**
@@ -1456,37 +1426,75 @@ void stopProgram(void) {
   * @retval None
   */
 void showHelp(void) {
-    CDC_Transmit_FS((uint8_t*)"\r\n=== AYUDA DEL SISTEMA CNC ===\r\n", 34);
-    CDC_Transmit_FS((uint8_t*)"\r\nCOMANDOS DE PROGRAMA:\r\n", 25);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_START  - Inicia modo almacenamiento de programa\r\n", 58);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_STOP   - Detiene almacenamiento\r\n", 42);
-    CDC_Transmit_FS((uint8_t*)"FIN            - Termina almacenamiento de programa\r\n", 54);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_RUN    - Ejecuta programa completo\r\n", 45);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_NEXT   - Ejecuta siguiente linea\r\n", 43);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_PAUSE  - Pausa ejecucion\r\n", 35);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_INFO   - Muestra informacion del programa\r\n", 52);
-    CDC_Transmit_FS((uint8_t*)"PROGRAM_CLEAR  - Limpia programa almacenado\r\n", 46);
+    sendUSBText("\r\n=== AYUDA DEL SISTEMA CNC ===\r\n");
+    sendUSBText("\r\nCOMANDOS DE PROGRAMA:\r\n");
+    sendUSBText("PROGRAM_START  - Inicia modo almacenamiento de programa\r\n");
+    sendUSBText("PROGRAM_STOP   - Detiene almacenamiento\r\n");
+    sendUSBText("FIN            - Termina almacenamiento de programa\r\n");
+    sendUSBText("PROGRAM_RUN    - Ejecuta programa completo\r\n");
+    sendUSBText("PROGRAM_NEXT   - Ejecuta siguiente linea\r\n");
+    sendUSBText("PROGRAM_PAUSE  - Pausa ejecucion\r\n");
+    sendUSBText("PROGRAM_INFO   - Muestra informacion del programa\r\n");
+    sendUSBText("PROGRAM_CLEAR  - Limpia programa almacenado\r\n");
+    sendUSBText("QUEUE_STATUS   - Estado de cola de transmision USB\r\n");
     
-    CDC_Transmit_FS((uint8_t*)"\r\nCOMANDOS G-CODE BASICOS:\r\n", 27);
-    CDC_Transmit_FS((uint8_t*)"G0 X Y Z       - Movimiento rapido\r\n", 37);
-    CDC_Transmit_FS((uint8_t*)"G1 X Y Z F     - Movimiento lineal con feed rate\r\n", 51);
-    CDC_Transmit_FS((uint8_t*)"G28            - Homing (ir a origen)\r\n", 39);
-    CDC_Transmit_FS((uint8_t*)"G92 X Y Z      - Establecer posicion actual\r\n", 46);
-    CDC_Transmit_FS((uint8_t*)"M17            - Habilitar motores\r\n", 37);
-    CDC_Transmit_FS((uint8_t*)"M18 / M84      - Deshabilitar motores\r\n", 39);
-    CDC_Transmit_FS((uint8_t*)"M114           - Reportar posicion actual\r\n", 44);
-    CDC_Transmit_FS((uint8_t*)"M503           - Mostrar configuracion\r\n", 40);
+    sendUSBText("\r\nCOMANDOS G-CODE BASICOS:\r\n");
+    sendUSBText("G0 X Y Z       - Movimiento rapido\r\n");
+    sendUSBText("G1 X Y Z F     - Movimiento lineal con feed rate\r\n");
+    sendUSBText("G28            - Homing (ir a origen)\r\n");
+    sendUSBText("G92 X Y Z      - Establecer posicion actual\r\n");
+    sendUSBText("M17            - Habilitar motores\r\n");
+    sendUSBText("M18 / M84      - Deshabilitar motores\r\n");
+    sendUSBText("M114           - Reportar posicion actual\r\n");
+    sendUSBText("M503           - Mostrar configuracion\r\n");
     
-    CDC_Transmit_FS((uint8_t*)"\r\nEJEMPLO DE USO:\r\n", 18);
-    CDC_Transmit_FS((uint8_t*)"1. PROGRAM_START\r\n", 18);
-    CDC_Transmit_FS((uint8_t*)"2. G28 (enviar)\r\n", 17);
-    CDC_Transmit_FS((uint8_t*)"3. G0 X10 Y10 (enviar)\r\n", 24);
-    CDC_Transmit_FS((uint8_t*)"4. G1 X20 Y20 F100 (enviar)\r\n", 29);
-    CDC_Transmit_FS((uint8_t*)"5. FIN\r\n", 8);
-    CDC_Transmit_FS((uint8_t*)"6. PROGRAM_RUN\r\n", 16);
+    sendUSBText("\r\nEJEMPLO DE USO:\r\n");
+    sendUSBText("1. PROGRAM_START\r\n");
+    sendUSBText("2. G28 (enviar)\r\n");
+    sendUSBText("3. G0 X10 Y10 (enviar)\r\n");
+    sendUSBText("4. G1 X20 Y20 F100 (enviar)\r\n");
+    sendUSBText("5. FIN\r\n");
+    sendUSBText("6. PROGRAM_RUN\r\n");
     
-    CDC_Transmit_FS((uint8_t*)"\r\n=== FIN AYUDA ===\r\n", 20);
-    CDC_Transmit_FS((uint8_t*)"ok\r\n", 4);
+    sendUSBText("\r\n=== FIN AYUDA ===\r\n");
+    sendUSBText("ok\r\n");
+}
+
+/**
+  * @brief  Muestra el estado de la cola de transmisión USB CDC
+  * @retval None
+  */
+void showQueueStatus(void) {
+
+    sprintf(outputBuffer, "\r\n=== ESTADO COLA USB CDC ===\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    sprintf(outputBuffer, "Mensajes en cola: %d/%d\r\n", CDC_TxQueue_GetCount(), 10);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    sprintf(outputBuffer, "Cola llena: %s\r\n", CDC_TxQueue_IsFull() ? "SI" : "NO");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    sprintf(outputBuffer, "Método transmisión: ");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    switch (USB_TRANSMIT_METHOD) {
+        case USB_METHOD_DIRECT:
+            sendUSBText("DIRECTO\r\n");
+            break;
+        case USB_METHOD_RETRY:
+            sendUSBText("REINTENTOS\r\n");
+            break;
+        case USB_METHOD_QUEUED:
+            sendUSBText("COLA\r\n");
+            break;
+    }
+    
+    sendUSBText("===========================\r\n");
 }
 
 /* USER CODE END 4 */

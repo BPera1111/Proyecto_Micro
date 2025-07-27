@@ -3,5 +3,5 @@
 ../Core/Src/gcode_parser.c:98:6:read_float	40	static
 ../Core/Src/gcode_parser.c:144:9:gc_parse_line	32	static
 ../Core/Src/gcode_parser.c:318:9:gc_execute_block	152	static
-../Core/Src/gcode_parser.c:424:9:gc_execute_line	24	static
-../Core/Src/gcode_parser.c:454:6:report_status_message	48	static
+../Core/Src/gcode_parser.c:429:9:gc_execute_line	24	static
+../Core/Src/gcode_parser.c:459:6:report_status_message	48	static

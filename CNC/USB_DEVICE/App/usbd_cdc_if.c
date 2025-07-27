@@ -25,6 +25,7 @@
 #include "main.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,6 +101,26 @@ uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 extern char usbBuffer[100];
 extern int usbBufferIndex;
 extern bool usbCommandComplete;
+
+// Sistema de cola para transmisión USB CDC
+#define TX_QUEUE_SIZE 30           // Máximo 30 mensajes en cola
+#define TX_BUFFER_SIZE 128         // Tamaño máximo por mensaje
+
+typedef struct {
+    uint8_t data[TX_BUFFER_SIZE];
+    uint16_t length;
+    bool used;
+} TxMessage_t;
+
+typedef struct {
+    TxMessage_t messages[TX_QUEUE_SIZE];
+    uint8_t head;          // Índice para escribir
+    uint8_t tail;          // Índice para leer
+    uint8_t count;         // Número de mensajes en cola
+    bool transmitting;     // Flag para indicar si hay transmisión en curso
+} TxQueue_t;
+
+static TxQueue_t txQueue = {0};
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -317,6 +338,119 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
+
+// ========== SISTEMA DE COLA PARA TRANSMISIÓN USB CDC ==========
+
+/**
+ * @brief Inicializa la cola de transmisión
+ */
+void CDC_TxQueue_Init(void)
+{
+    txQueue.head = 0;
+    txQueue.tail = 0;
+    txQueue.count = 0;
+    txQueue.transmitting = false;
+    
+    // Limpiar todos los mensajes
+    for (int i = 0; i < TX_QUEUE_SIZE; i++) {
+        txQueue.messages[i].used = false;
+        txQueue.messages[i].length = 0;
+    }
+}
+
+/**
+ * @brief Agrega un mensaje a la cola de transmisión
+ * @param data: Datos a enviar
+ * @param length: Longitud de los datos
+ * @retval true si se agregó exitosamente, false si la cola está llena
+ */
+bool CDC_TxQueue_Add(uint8_t* data, uint16_t length)
+{
+    // Verificar si hay espacio en la cola
+    if (txQueue.count >= TX_QUEUE_SIZE || length > TX_BUFFER_SIZE) {
+        return false;
+    }
+    
+    // Agregar mensaje a la cola
+    TxMessage_t* msg = &txQueue.messages[txQueue.head];
+    memcpy(msg->data, data, length);
+    msg->length = length;
+    msg->used = true;
+    
+    // Actualizar índices
+    txQueue.head = (txQueue.head + 1) % TX_QUEUE_SIZE;
+    txQueue.count++;
+    
+    return true;
+}
+
+/**
+ * @brief Procesa la cola de transmisión (debe llamarse periódicamente)
+ */
+void CDC_TxQueue_Process(void)
+{
+    // Si no hay mensajes, salir
+    if (txQueue.count == 0) {
+        return;
+    }
+    
+    // Si ya hay transmisión en curso, verificar si terminó
+    if (txQueue.transmitting) {
+        // Intentar enviar un mensaje vacío para verificar el estado
+        uint8_t result = CDC_Transmit_FS(NULL, 0);
+        if (result != USBD_BUSY) {
+            // La transmisión anterior terminó
+            txQueue.transmitting = false;
+        } else {
+            // Aún transmitiendo, salir
+            return;
+        }
+    }
+    
+    // Intentar enviar el próximo mensaje
+    TxMessage_t* msg = &txQueue.messages[txQueue.tail];
+    if (msg->used) {
+        uint8_t result = CDC_Transmit_FS(msg->data, msg->length);
+        
+        if (result == USBD_OK) {
+            // Mensaje enviado exitosamente
+            txQueue.transmitting = true;  // Marcar como transmitiendo
+            msg->used = false;
+            txQueue.tail = (txQueue.tail + 1) % TX_QUEUE_SIZE;
+            txQueue.count--;
+        }
+        // Si result == USBD_BUSY, intentaremos de nuevo la próxima vez
+    }
+}
+
+/**
+ * @brief Función principal para enviar datos usando la cola
+ * @param data: Datos a enviar
+ * @param length: Longitud de los datos
+ * @retval true si se agregó a la cola, false si la cola está llena
+ */
+bool CDC_Transmit_Queued(uint8_t* data, uint16_t length)
+{
+    return CDC_TxQueue_Add(data, length);
+}
+
+/**
+ * @brief Obtiene el número de mensajes en cola
+ * @retval Número de mensajes pendientes
+ */
+uint8_t CDC_TxQueue_GetCount(void)
+{
+    return txQueue.count;
+}
+
+/**
+ * @brief Verifica si la cola está llena
+ * @retval true si está llena, false si hay espacio
+ */
+bool CDC_TxQueue_IsFull(void)
+{
+    return (txQueue.count >= TX_QUEUE_SIZE);
+}
 
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
