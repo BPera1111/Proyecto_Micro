@@ -1,0 +1,15 @@
+../Core/Src/motion.c:34:6:delay_us	2
+../Core/Src/motion.c:46:10:calculateStepDelay	3
+../Core/Src/motion.c:78:6:X_stepOnce	1
+../Core/Src/motion.c:88:6:Y_stepOnce	1
+../Core/Src/motion.c:98:6:Z_stepOnce	1
+../Core/Src/motion.c:110:6:X_move	3
+../Core/Src/motion.c:140:6:Y_move	3
+../Core/Src/motion.c:170:6:Z_move	3
+../Core/Src/motion.c:202:6:enableSteppers	1
+../Core/Src/motion.c:213:6:disableSteppers	1
+../Core/Src/motion.c:231:6:moveAxesWithFeedRate	23
+../Core/Src/motion.c:372:6:arc_move_r	7
+../Core/Src/motion.c:438:6:getCurrentPositionMM	4
+../Core/Src/motion.c:449:6:setCurrentPosition	1
+../Core/Src/motion.c:460:6:setCurrentPositionMM	1

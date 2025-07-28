@@ -17,7 +17,7 @@ PUERTO = "COM13"  # En Windows: COM3, COM4, etc. | En Linux: /dev/ttyUSB0, /dev/
 
 # G-code a enviar (una línea por string)
 # Dirección del archivo G-code
-GCODE_DIR = "gcode_files"
+GCODE_DIR = "examples"
 
 def listar_archivos_gcode(directorio):
     """Lista archivos .gcode en el directorio"""

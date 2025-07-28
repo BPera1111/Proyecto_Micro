@@ -94,6 +94,7 @@ typedef struct {
     float x, y, z;          // Coordenadas de destino
     float f;                // Feed rate
     float s;                // Spindle speed
+    float r;                // Radio para arcos (G2/G3)
     int32_t n;              // Line number
     uint8_t p, l;           // Parámetros P y L
     bool x_defined;         // Flags para saber qué parámetros están definidos
@@ -101,6 +102,7 @@ typedef struct {
     bool z_defined;
     bool f_defined;
     bool s_defined;
+    bool r_defined;         // Nuevo flag para radio de arco
 } gc_values_t;
 
 // Estructura para el estado modal del parser

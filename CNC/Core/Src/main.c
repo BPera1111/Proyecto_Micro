@@ -31,6 +31,8 @@
 #include "usbd_cdc_if.h"
 #include "stm32f1xx_hal.h"
 #include "gcode_parser.h"
+#include "config.h"
+#include "motion.h"
 //#include "usart.h"
 /* USER CODE END Includes */
 
@@ -40,25 +42,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define DEBUG_MESSAGES 0  // Cambiar a 0 para desactivar mensajes de debug
-
-// Configuración real de la máquina (valores calibrados)
-#define STEPS_PER_MM_X 79      // Pasos por mm para eje X
-#define STEPS_PER_MM_Y 79      // Pasos por mm para eje Y
-#define STEPS_PER_MM_Z 3930    // Pasos por mm para eje Z
-
-// Definiciones de segmentos para arcos
-#define SEGMENTS 50
-#define PI 3.14159265358979323846
-
-// Método de transmisión USB CDC (puedes cambiar esto según tus necesidades)
-typedef enum {
-    USB_METHOD_DIRECT,      // Envío directo (puede perderse si está ocupado)
-    USB_METHOD_RETRY,       // Envío con reintentos (bloquea hasta enviar)
-    USB_METHOD_QUEUED       // Envío mediante cola (recomendado)
-} USBTransmitMethod_t;
-
-#define USB_TRANSMIT_METHOD USB_METHOD_QUEUED  // ← Cambiar aquí el método
 
 // Función auxiliar para envío USB según el método configurado
 void sendUSBText(const char* message) {
@@ -83,17 +66,6 @@ void sendUSBText(const char* message) {
     // }
 }
 
-
-// Códigos de alarma específicos de la máquina
-#define ALARM_HARD_LIMIT        1   // Hard limit activo
-#define ALARM_SOFT_LIMIT        2   // Soft limit activo
-#define ALARM_ABORT_CYCLE       3   // Reset durante ciclo
-#define ALARM_PROBE_FAIL_INITIAL 4  // Probe fail al inicio
-#define ALARM_PROBE_FAIL_CONTACT 5  // Probe fail en contacto
-#define ALARM_HOMING_FAIL_RESET  6  // Homing fail reset
-#define ALARM_HOMING_FAIL_DOOR   7  // Homing fail puerta
-#define ALARM_HOMING_FAIL_PULLOFF 8 // Homing fail pulloff
-#define ALARM_HOMING_FAIL_APPROACH 9 // Homing fail approach
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -106,25 +78,23 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 extern UART_HandleTypeDef huart1;
-// Declarar buffer global
-static char outputBuffer[200];
+// Declarar buffer global (accesible desde motion.c)
+char outputBuffer[OUTPUT_BUFFER_SIZE];
 int bufferIndex = 0;
 bool commandComplete = false;
 int32_t currentX, currentY, currentZ;
 
 // Variables para control de velocidad y feed rate
-float currentFeedRate = 100.0;     // Feed rate en mm/min (valor por defecto)
-float rapidRate = 1000.0;          // Velocidad rápida para G0 en mm/min
-float maxFeedRate = 2000.0;        // Velocidad máxima permitida
+float currentFeedRate = DEFAULT_FEED_RATE;     // Feed rate en mm/min (valor por defecto)
+float rapidRate = DEFAULT_RAPID_RATE;          // Velocidad rápida para G0 en mm/min
+float maxFeedRate = DEFAULT_MAX_FEED_RATE;     // Velocidad máxima permitida
 
 // Buffer para recibir comandos por USB CDC
-char usbBuffer[100];
+char usbBuffer[USB_BUFFER_SIZE];
 int usbBufferIndex = 0;
 bool usbCommandComplete = false;  // Cambiar a false para evitar procesamiento inicial
 
 // Sistema de almacenamiento de programa G-code
-#define MAX_GCODE_LINES 100        // Máximo número de líneas de G-code a almacenar
-#define MAX_LINE_LENGTH 80         // Longitud máxima de cada línea de G-code
 char gcodeProgram[MAX_GCODE_LINES][MAX_LINE_LENGTH];  // Buffer para almacenar el programa
 int programLineCount = 0;          // Número de líneas actualmente almacenadas
 int currentExecutingLine = 0;      // Línea que se está ejecutando actualmente
@@ -132,26 +102,7 @@ bool isStoringProgram = false;     // Flag para indicar si estamos en modo almac
 bool isProgramLoaded = false;      // Flag para indicar si hay un programa cargado
 bool isProgramRunning = false;     // Flag para indicar si el programa se está ejecutando
 
-// Definiciones de pines equivalentes a Arduino
-#define X_STEP_PIN    GPIO_PIN_6
-#define X_DIR_PIN     GPIO_PIN_7
-#define X_EN_PIN      GPIO_PIN_8
-#define X_MIN_PIN     GPIO_PIN_12
-
-#define Y_STEP_PIN    GPIO_PIN_9
-#define Y_DIR_PIN     GPIO_PIN_3
-#define Y_EN_PIN      GPIO_PIN_4
-#define Y_MIN_PIN     GPIO_PIN_13
-
-#define Z_STEP_PIN    GPIO_PIN_8
-#define Z_DIR_PIN     GPIO_PIN_9
-#define Z_EN_PIN      GPIO_PIN_10
-#define Z_MIN_PIN     GPIO_PIN_14
-
-#define LED_HORARIO     GPIO_PIN_0
-#define LED_ANTIHORARIO GPIO_PIN_1
-
-const uint16_t STEP_DELAY_US = 800;
+const uint16_t STEP_DELAY_VALUE = STEP_DELAY_US;  // Usar valor de config.h
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -161,26 +112,12 @@ static void MX_GPIO_Init(void);
 /* USER CODE BEGIN PFP */
 void loop(void);
 void setup(void);
-void delay_us(uint32_t us);
 // void moveAxes(float x, float y, float z);
 void processGcode(const char* command);
-void X_move(int32_t steps, bool dir);
-void Y_move(int32_t steps, bool dir);
-void Z_move(int32_t steps, bool dir);
-void X_stepOnce(void);
-void Y_stepOnce(void);
-void Z_stepOnce(void);
 void performHoming(void);
 bool isEndstopPressed(char axis);
-void enableSteppers(void);
-void disableSteppers(void);
 void showConfiguration(void);
 void report_status_message(uint8_t status_code);
-
-// Funciones para control de feed rate
-uint32_t calculateStepDelay(float feedRate, float distance_mm);
-void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapid);
-void arc_move_r(float x_end, float y_end, float r, int clockwise);  // Movimiento de arco con radio
 
 // Funciones para manejo de programa G-code
 void startProgramStorage(void);
@@ -368,400 +305,71 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void delay_us(uint32_t us) {
-    uint32_t cycles = (SystemCoreClock / 1000000L) * us;
-    uint32_t start = DWT->CYCCNT;
-    while ((DWT->CYCCNT - start) < cycles);
-}
+// void arc_move_r(float x_end, float y_end, float r, int clockwise) {
+//     float x0 = currentX;
+//     float y0 = currentY;
+//     float x1 = x_end* STEPS_PER_MM_X; // Convertir a pasos
+//     float y1 = y_end* STEPS_PER_MM_Y; // Convertir a pasos
+//     r = r * STEPS_PER_MM_X; // Convertir radio a pasos
 
-void X_stepOnce(void) {
-    HAL_GPIO_WritePin(GPIOB, X_STEP_PIN, GPIO_PIN_SET);
-    delay_us(2);
-    HAL_GPIO_WritePin(GPIOB, X_STEP_PIN, GPIO_PIN_RESET);
-}
+//     float dx = x1 - x0;
+//     float dy = y1 - y0;
+//     float d_sq = dx * dx + dy * dy;
+//     float d = sqrtf(d_sq);
 
-void Y_stepOnce(void) {
-    HAL_GPIO_WritePin(GPIOB, Y_STEP_PIN, GPIO_PIN_SET);
-    delay_us(2);
-    HAL_GPIO_WritePin(GPIOB, Y_STEP_PIN, GPIO_PIN_RESET);
-}
+//     if (d > 2.0f * fabsf(r)) {
+//         printf("Error: radio demasiado pequeño para unir los puntos\n");
+//         return;
+//     }
 
-void Z_stepOnce(void) {
-    HAL_GPIO_WritePin(GPIOA, Z_STEP_PIN, GPIO_PIN_SET);
-    delay_us(2);
-    HAL_GPIO_WritePin(GPIOA, Z_STEP_PIN, GPIO_PIN_RESET);
-}
+//     // Punto medio
+//     float mx = (x0 + x1) * 0.5f;
+//     float my = (y0 + y1) * 0.5f;
 
-void X_move(int32_t steps, bool dir) {
-    // Configura dirección
-    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//     // Altura del centro al punto medio
+//     float h = sqrtf(fabsf(r * r - (d_sq * 0.25f)));
 
-    // Enciende el LED correspondiente al sentido
-    if (dir) {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
-    }
+//     // Vector normalizado perpendicular
+//     float nx = -dy / d;
+//     float ny = dx / d;
 
-    // Ejecuta los pasos
-    for (int32_t i = 0; i < steps; i++) {
-        X_stepOnce();
-        delay_us(STEP_DELAY_US);
-    }
+//     float cx, cy;
 
-    // Apaga ambos LEDs al terminar
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-}
+//     if (clockwise) {
+//         cx = mx + nx * h;
+//         cy = my + ny * h;
+//     } else {
+//         cx = mx - nx * h;
+//         cy = my - ny * h;
+//     }
 
-void Y_move(int32_t steps, bool dir) {
-    // Configura dirección
-    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
+//     // Punto inicial relativo al centro
+//     float x = x0 - cx;
+//     float y = y0 - cy;
 
-    // Enciende el LED correspondiente al sentido
-    if (dir) {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
-    }
+//     // Ángulo total recorrido
+//     float theta = (clockwise ? -1.0f : 1.0f) * 2.0f * acosf((dx * dx + dy * dy) / (2.0f * r * r));
 
-    // Ejecuta los pasos
-    for (int32_t i = 0; i < steps; i++) {
-        Y_stepOnce();
-        delay_us(STEP_DELAY_US);
-    }
+//     // Paso angular
+//     float angle_per_segment = theta / SEGMENTS;
 
-    // Apaga ambos LEDs al terminar
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-}
+//     // Precalcular seno y coseno del paso
+//     float cos_t = 1.0f - 0.5f * angle_per_segment * angle_per_segment;  // cos(Δθ) ≈ 1 - Δθ²/2
+//     float sin_t = angle_per_segment;  // sin(Δθ) ≈ Δθ (bueno para Δθ pequeño)
 
-void Z_move(int32_t steps, bool dir) {
-    // Configura dirección
-    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dir ? GPIO_PIN_RESET : GPIO_PIN_SET);
+//     // Interpolación
+//     for (int i = 0; i < SEGMENTS; ++i) {
+//         float x_new = x * cos_t - y * sin_t;
+//         float y_new = x * sin_t + y * cos_t;
+//         x = x_new;
+//         y = y_new;
+//         moveAxesWithFeedRate((cx + x)/STEPS_PER_MM_X, (cy + y)/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
+//     }
 
-    // Enciende el LED correspondiente al sentido
-    if (dir) {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
-    }
-
-    // Ejecuta los pasos
-    for (int32_t i = 0; i < steps; i++) {
-        Z_stepOnce();
-        delay_us(STEP_DELAY_US);
-    }
-
-    // Apaga ambos LEDs al terminar
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-}
-
-
-/**
-  * @brief  Calcula el delay entre pasos basado en el feed rate
-  * @param  feedRate: Velocidad en mm/min
-  * @param  distance_mm: Distancia total del movimiento en mm
-  * @retval Delay en microsegundos entre pasos
-  */
-uint32_t calculateStepDelay(float feedRate, float distance_mm) {
-    if (feedRate <= 0) return STEP_DELAY_US; // Usar delay por defecto si es inválido
-    
-    // Calcular pasos por segundo para el eje dominante
-    // feedRate está en mm/min, convertir a mm/s
-    float feedRate_mm_per_sec = feedRate / 60.0;
-    
-    // Usar el eje con mayor resolución (Z) para el cálculo más conservador
-    float steps_per_mm = STEPS_PER_MM_Z; // El más alto: 3930 steps/mm
-    
-    // Calcular pasos por segundo
-    float steps_per_sec = feedRate_mm_per_sec * steps_per_mm;
-    
-    // Calcular delay en microsegundos entre pasos
-    if (steps_per_sec <= 0) return STEP_DELAY_US;
-    
-    uint32_t delay_us = (uint32_t)(1000000.0 / steps_per_sec);
-    
-    // Limitar delay mínimo para evitar problemas de timing
-    if (delay_us < 200) delay_us = 200; // Mínimo 200us = 5000 pasos/segundo máximo
-    
-    return delay_us;
-}
-
-/**
-  * @brief  Movimiento de ejes con control de feed rate (versión avanzada)
-  * @param  x, y, z: Coordenadas objetivo en mm
-  * @param  feedRate: Velocidad en mm/min
-  * @param  isRapid: true para G0 (rapid), false para G1 (linear)
-  * @retval None
-  */
-void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapid) {
-    // Calcular posiciones objetivo en pasos
-    int32_t targetX = !isnan(x) ? (int32_t)(x * STEPS_PER_MM_X) : currentX;
-    int32_t targetY = !isnan(y) ? (int32_t)(y * STEPS_PER_MM_Y) : currentY;
-    int32_t targetZ = !isnan(z) ? (int32_t)(z * STEPS_PER_MM_Z) : currentZ;
-    
-    // Calcular diferencias (pasos relativos)
-    int32_t deltaX = targetX - currentX;
-    int32_t deltaY = targetY - currentY;
-    int32_t deltaZ = targetZ - currentZ;
-    
-    // Calcular distancia total en mm para determinar velocidad
-    float distance_X = !isnan(x) ? fabs(x - (currentX / (float)STEPS_PER_MM_X)) : 0;
-    float distance_Y = !isnan(y) ? fabs(y - (currentY / (float)STEPS_PER_MM_Y)) : 0;
-    float distance_Z = !isnan(z) ? fabs(z - (currentZ / (float)STEPS_PER_MM_Z)) : 0;
-    float total_distance = sqrt(distance_X*distance_X + distance_Y*distance_Y + distance_Z*distance_Z);
-    
-    // Seleccionar velocidad según el tipo de movimiento
-    float effective_feedrate = isRapid ? rapidRate : feedRate;
-    
-    // Limitar velocidad máxima
-    if (effective_feedrate > maxFeedRate) {
-        effective_feedrate = maxFeedRate;
-    }
-    
-    // Determinar direcciones
-    bool dirX = (deltaX >= 0);
-    bool dirY = (deltaY >= 0);
-    bool dirZ = (deltaZ >= 0);
-    
-    // Configurar direcciones de los motores
-    if (deltaX != 0) HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dirX ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    if (deltaY != 0) HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dirY ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    if (deltaZ != 0) HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dirZ ? GPIO_PIN_RESET : GPIO_PIN_SET);
-    
-    // Convertir a valores absolutos para el algoritmo
-    deltaX = abs(deltaX);
-    deltaY = abs(deltaY);
-    deltaZ = abs(deltaZ);
-    
-    // Calcular delay basado en feed rate
-    uint32_t step_delay = calculateStepDelay(effective_feedrate, total_distance);
-    
-    // Debug: verificar valores antes del mensaje
-    #if DEBUG_MESSAGES
-    snprintf(outputBuffer, sizeof(outputBuffer), "[DEBUG] x=%.2f y=%.2f z=%.2f rate=%.1f dist=%.2f\r\n", 
-             x, y, z, effective_feedrate, total_distance);
-    sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
-    #endif
-    
-    // Mostrar información del movimiento con validación de valores
-    float display_x = !isnan(x) ? x : (currentX / (float)STEPS_PER_MM_X);
-    float display_y = !isnan(y) ? y : (currentY / (float)STEPS_PER_MM_Y);
-    float display_z = !isnan(z) ? z : (currentZ / (float)STEPS_PER_MM_Z);
-    
-    // Convertir floats a enteros para evitar problemas de printf con floats
-    int x_int = (int)display_x;
-    int x_dec = (int)((display_x - x_int) * 100);
-    int y_int = (int)display_y;
-    int y_dec = (int)((display_y - y_int) * 100);
-    int z_int = (int)display_z;
-    int z_dec = (int)((display_z - z_int) * 100);
-    int f_int = (int)effective_feedrate;
-    int f_dec = (int)((effective_feedrate - f_int) * 10);
-    int d_int = (int)total_distance;
-    int d_dec = (int)((total_distance - d_int) * 100);
-
-    snprintf(outputBuffer, sizeof(outputBuffer), "%s: X=%d.%02d Y=%d.%02d Z=%d.%02d F=%d.%d D=%d.%02dmm T=%lduS\r\n", 
-           isRapid ? "G0 RAPID" : "G1 LINEAR",
-           x_int, abs(x_dec),
-           y_int, abs(y_dec), 
-           z_int, abs(z_dec),
-           f_int, abs(f_dec), 
-           d_int, abs(d_dec), 
-           (unsigned long)step_delay);
-    sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
-    // Algoritmo de interpolación lineal 3D (Bresenham modificado)
-    int32_t maxSteps = deltaX;
-    if (deltaY > maxSteps) maxSteps = deltaY;
-    if (deltaZ > maxSteps) maxSteps = deltaZ;
-    
-    if (maxSteps == 0) return; // No hay movimiento
-    
-    // Variables para el algoritmo de Bresenham 3D
-    int32_t errorX = maxSteps / 2;
-    int32_t errorY = maxSteps / 2;
-    int32_t errorZ = maxSteps / 2;
-    
-    // Encender LED indicador de movimiento
-    HAL_GPIO_WritePin(GPIOB, isRapid ? LED_ANTIHORARIO : LED_HORARIO, GPIO_PIN_SET);
-    
-    // Ejecutar pasos interpolados con feed rate controlado
-    for (int32_t step = 0; step < maxSteps; step++) {
-        bool stepX = false, stepY = false, stepZ = false;
-        
-        // Algoritmo de Bresenham para X
-        errorX += deltaX;
-        if (errorX >= maxSteps) {
-            errorX -= maxSteps;
-            stepX = true;
-        }
-        
-        // Algoritmo de Bresenham para Y
-        errorY += deltaY;
-        if (errorY >= maxSteps) {
-            errorY -= maxSteps;
-            stepY = true;
-        }
-        
-        // Algoritmo de Bresenham para Z
-        errorZ += deltaZ;
-        if (errorZ >= maxSteps) {
-            errorZ -= maxSteps;
-            stepZ = true;
-        }
-        
-        // Ejecutar pasos simultáneamente
-        if (stepX) X_stepOnce();
-        if (stepY) Y_stepOnce();
-        if (stepZ) Z_stepOnce();
-        
-        // Delay controlado por feed rate
-        delay_us(step_delay);
-    }
-    
-    // Apagar LEDs
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    
-    // Actualizar posiciones actuales
-    currentX = targetX;
-    currentY = targetY;
-    currentZ = targetZ;
-}
-
-
-
-void arc_move_r(float x_end, float y_end, float r, int clockwise) {
-    float x0 = currentX;
-    float y0 = currentY;
-    float x1 = x_end* STEPS_PER_MM_X; // Convertir a pasos
-    float y1 = y_end* STEPS_PER_MM_Y; // Convertir a pasos
-    r = r * STEPS_PER_MM_X; // Convertir radio a pasos
-
-    float dx = x1 - x0;
-    float dy = y1 - y0;
-    float d_sq = dx * dx + dy * dy;
-    float d = sqrtf(d_sq);
-
-    if (d > 2.0f * fabsf(r)) {
-        printf("Error: radio demasiado pequeño para unir los puntos\n");
-        return;
-    }
-
-    // Punto medio
-    float mx = (x0 + x1) * 0.5f;
-    float my = (y0 + y1) * 0.5f;
-
-    // Altura del centro al punto medio
-    float h = sqrtf(fabsf(r * r - (d_sq * 0.25f)));
-
-    // Vector normalizado perpendicular
-    float nx = -dy / d;
-    float ny = dx / d;
-
-    float cx, cy;
-
-    if (clockwise) {
-        cx = mx + nx * h;
-        cy = my + ny * h;
-    } else {
-        cx = mx - nx * h;
-        cy = my - ny * h;
-    }
-
-    // Punto inicial relativo al centro
-    float x = x0 - cx;
-    float y = y0 - cy;
-
-    // Ángulo total recorrido
-    float theta = (clockwise ? -1.0f : 1.0f) * 2.0f * acosf((dx * dx + dy * dy) / (2.0f * r * r));
-
-    // Paso angular
-    float angle_per_segment = theta / SEGMENTS;
-
-    // Precalcular seno y coseno del paso
-    float cos_t = 1.0f - 0.5f * angle_per_segment * angle_per_segment;  // cos(Δθ) ≈ 1 - Δθ²/2
-    float sin_t = angle_per_segment;  // sin(Δθ) ≈ Δθ (bueno para Δθ pequeño)
-
-    // Interpolación
-    for (int i = 0; i < SEGMENTS; ++i) {
-        float x_new = x * cos_t - y * sin_t;
-        float y_new = x * sin_t + y * cos_t;
-        x = x_new;
-        y = y_new;
-        moveAxesWithFeedRate((cx + x)/STEPS_PER_MM_X, (cy + y)/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
-    }
-
-    // Asegurar posición final exacta
-    moveAxesWithFeedRate(x_end/STEPS_PER_MM_X, y_end/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
-}
+//     // Asegurar posición final exacta
+//     moveAxesWithFeedRate(x_end/STEPS_PER_MM_X, y_end/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
+// }
 //moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
-    // float x0 = currentX;
-    // float y0 = currentY;
-    // float x1 = x_end * STEPS_PER_MM_X;
-    // float y1 = y_end * STEPS_PER_MM_Y;
-    // r = r * STEPS_PER_MM_X; // Convertir radio a pasos
-
-    // float dx = x1 - x0;
-    // float dy = y1 - y0;
-    // float d = sqrt(dx * dx + dy * dy);
-
-    // if (d > 2 * fabs(r)) {
-    //     // printf("Error: el radio es muy pequeño para unir los puntos.\n");
-    //     sendUSBText("Error: el radio es muy pequeño para unir los puntos.\r\n");
-    //     return;
-    // }
-
-    // // Punto medio entre inicio y fin
-    // float mx = (x0 + x1) / 2;
-    // float my = (y0 + y1) / 2;
-
-    // // Altura desde el punto medio al centro
-    // float h = sqrt(r * r - (d / 2) * (d / 2));
-
-    // // Vector perpendicular normalizado
-    // float nx = -dy / d;
-    // float ny = dx / d;
-
-    // // Determinar centro en una de las dos direcciones posibles
-    // float cx, cy;
-
-    // if (clockwise) {
-    //     cx = mx + nx * h;
-    //     cy = my + ny * h;
-    // } else {
-    //     cx = mx - nx * h;
-    //     cy = my - ny * h;
-    // }
-
-    // // Ángulos
-    // float start_angle = atan2(y0 - cy, x0 - cx);
-    // float end_angle = atan2(y1 - cy, x1 - cx);
-    // float total_angle = end_angle - start_angle;
-
-    // if (clockwise && total_angle > 0) {
-    //     total_angle -= 2 * PI;
-    // } else if (!clockwise && total_angle < 0) {
-    //     total_angle += 2 * PI;
-    // }
-
-    // for (int i = 1; i <= SEGMENTS; i++) {
-    //     float angle = start_angle + total_angle * ((float)i / SEGMENTS);
-    //     float x = cx + r * cos(angle);
-    //     float y = cy + r * sin(angle);
-    //     moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
-    // }
-
 
 void processGcode(const char* command) {
     // Comandos especiales para control de programa
@@ -944,7 +552,7 @@ void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defin
     if (z_defined) {
         currentZ = z * STEPS_PER_MM_Z;
     }
-    char setMsg[100];
+    // char setMsg[100];
     
     // Convertir posiciones a enteros para evitar problemas con printf float
     float pos_x = currentX/(float)STEPS_PER_MM_X;
@@ -1086,7 +694,7 @@ bool isEndstopPressed(char axis) {
 
 // Función de homing para todos los ejes
 void performHoming(void) {
-    char msg[80];
+    // char msg[80];
     
     // Enviar mensaje de inicio de homing
     sendUSBText("Iniciando secuencia de homingg...\r\n");
@@ -1101,6 +709,7 @@ void performHoming(void) {
     sprintf(outputBuffer, "Homing eje X...\r\n");
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
+    CDC_TxQueue_Process();
 
     // Mover hacia el final de carrera X (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
@@ -1128,7 +737,7 @@ void performHoming(void) {
     }
     if (!isEndstopPressed('X')) {
         sprintf(outputBuffer, "Error: Final de carrera X no presionado\r\n");
-        sendUSBText(outputBuffer);
+        sendUSBText(outputBuffer);CDC_TxQueue_Process();
         memset(outputBuffer, 0, sizeof(outputBuffer));
         // Activar interrupción o LED de error
         return; // Salir si no se presionó el endstop
@@ -1136,15 +745,13 @@ void performHoming(void) {
     
     currentX = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje X en posición home\r\n");
-    sendUSBText(outputBuffer);
+    sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     // Homing del eje Y
     sprintf(outputBuffer, "Homing eje Y...\r\n");
-    sendUSBText(outputBuffer);
+    sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
-
-    CDC_TxQueue_Process();
 
     // Mover hacia el final de carrera Y (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
@@ -1171,7 +778,7 @@ void performHoming(void) {
     }
     if (!isEndstopPressed('Y')) {
         sprintf(outputBuffer, "Error: Final de carrera Y no presionado\r\n");
-        sendUSBText(outputBuffer);
+        sendUSBText(outputBuffer);CDC_TxQueue_Process();
         memset(outputBuffer, 0, sizeof(outputBuffer));
         // Activar interrupción o LED de error
         return; // Salir si no se presionó el endstop
@@ -1179,15 +786,13 @@ void performHoming(void) {
     
     currentY = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje Y en posición home\r\n");
-    sendUSBText(outputBuffer);
+    sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     // Homing del eje Z
     sprintf(outputBuffer, "Homing eje Z...\r\n");
-    sendUSBText(outputBuffer);
+    sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
-
-    CDC_TxQueue_Process();
 
     // Mover hacia el final de carrera Z (dirección negativa)
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
@@ -1214,7 +819,7 @@ void performHoming(void) {
     }
     if (!isEndstopPressed('Z')) {
         sprintf(outputBuffer, "Error: Final de carrera Z no presionado\r\n");
-        sendUSBText(outputBuffer);
+        sendUSBText(outputBuffer);CDC_TxQueue_Process();
         memset(outputBuffer, 0, sizeof(outputBuffer));
         // Activar interrupción o LED de error
         return; // Salir si no se presionó el endstop
@@ -1222,35 +827,13 @@ void performHoming(void) {
     
     currentZ = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje Z en posición home\r\n");
-    sendUSBText(outputBuffer);
+    sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     // Mensaje final
     sprintf(outputBuffer, "Homing completado. Todos los ejes en posición home.\r\n");
-    sendUSBText(outputBuffer);
+    sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
-}
-
-/**
-  * @brief  Habilita todos los motores paso a paso
-  * @retval None
-  */
-void enableSteppers(void) {
-    // Habilitar drivers (EN LOW = habilitado para la mayoría de drivers A4988/DRV8825)
-    HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_RESET);  // Enable motor X
-    HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_RESET);  // Enable motor Y
-    HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_RESET);  // Enable motor Z
-}
-
-/**
-  * @brief  Deshabilita todos los motores paso a paso
-  * @retval None
-  */
-void disableSteppers(void) {
-    // Deshabilitar drivers (EN HIGH = deshabilitado para la mayoría de drivers A4988/DRV8825)
-    HAL_GPIO_WritePin(GPIOB, X_EN_PIN, GPIO_PIN_SET);    // Disable motor X
-    HAL_GPIO_WritePin(GPIOB, Y_EN_PIN, GPIO_PIN_SET);    // Disable motor Y
-    HAL_GPIO_WritePin(GPIOA, Z_EN_PIN, GPIO_PIN_SET);    // Disable motor Z
 }
 
 // =============================================================================

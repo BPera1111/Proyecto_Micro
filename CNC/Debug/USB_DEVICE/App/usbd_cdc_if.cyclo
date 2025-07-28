@@ -1,7 +1,7 @@
-../USB_DEVICE/App/usbd_cdc_if.c:176:15:CDC_Init_FS	1
 ../USB_DEVICE/App/usbd_cdc_if.c:190:15:CDC_DeInit_FS	1
 ../USB_DEVICE/App/usbd_cdc_if.c:204:15:CDC_Control_FS	1
 ../USB_DEVICE/App/usbd_cdc_if.c:285:15:CDC_Receive_FS	5
+../USB_DEVICE/App/usbd_cdc_if.c:176:15:CDC_Init_FS	1
 ../USB_DEVICE/App/usbd_cdc_if.c:326:9:CDC_Transmit_FS	2
 ../USB_DEVICE/App/usbd_cdc_if.c:347:6:CDC_TxQueue_Init	2
 ../USB_DEVICE/App/usbd_cdc_if.c:367:6:CDC_TxQueue_Add	3

@@ -40,6 +40,7 @@ extern void disableSteppers(void);
 // Funciones de callback con feed rate
 extern void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
 extern void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined);
+extern void moveAxesArcCallback(float x, float y, float radius, bool clockwise);
 
 /* Funciones privadas -------------------------------------------------------*/
 
@@ -79,6 +80,7 @@ void gc_clear_block(void) {
     gc_block.values.n = -1;
     gc_block.values.p = 0;
     gc_block.values.l = 0;
+    gc_block.values.r = NAN;
     
     // Flags de definición
     gc_block.values.x_defined = false;
@@ -86,6 +88,7 @@ void gc_clear_block(void) {
     gc_block.values.z_defined = false;
     gc_block.values.f_defined = false;
     gc_block.values.s_defined = false;
+    gc_block.values.r_defined = false;
 }
 
 /**
@@ -303,6 +306,11 @@ uint8_t gc_parse_line(char *line) {
                 gc_block.values.l = int_value;
                 if (value < 0.0) return STATUS_NEGATIVE_VALUE;
                 break;
+            case 'R':
+                gc_block.values.r = value;
+                gc_block.values.r_defined = true;
+                if (value < 0.0) return STATUS_NEGATIVE_VALUE;
+                break;
             default:
                 return STATUS_GCODE_UNSUPPORTED_COMMAND;
         }
@@ -378,13 +386,13 @@ uint8_t gc_execute_block(void) {
             break;
             
         case MOTION_MODE_CW_ARC:   // G2 - Arco horario
-            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
-                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.z, 1);  // 1 para sentido horario
+            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.r_defined) {
+                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.r, 1);  // 1 para sentido horario
                 break;
             }
         case MOTION_MODE_CCW_ARC:  // G3 - Arco antihorario
-            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
-                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.z, 0);  // 0 para sentido antihorario
+            if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.r_defined) {
+                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.r, 0);  // 0 para sentido antihorario
                 break;
             }
             break;
