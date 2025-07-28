@@ -33,6 +33,11 @@
 #define SEGMENTS 50
 #define PI 3.14159265358979323846
 
+// Configuración de tolerancia para rectas consecutivas
+#define MAX_LINEAS 100
+#define RADIO_SUAVIZADO 2.0
+#define ANGULO_MIN 175.0
+
 // ===========================================================================================
 // CONFIGURACIÓN DE PINES STM32F103C8T6 (Blue Pill)
 // ===========================================================================================
@@ -56,8 +61,8 @@
 #define Z_MIN_PIN     GPIO_PIN_14  // PB14
 
 // LEDs indicadores
-#define LED_HORARIO     GPIO_PIN_0   // PB0
-#define LED_ANTIHORARIO GPIO_PIN_1   // PB1
+#define LED_ERROR     GPIO_PIN_0   // PB0
+#define LED_CHECK     GPIO_PIN_1   // PB1
 
 // ===========================================================================================
 // CONFIGURACIÓN DE VELOCIDADES POR DEFECTO

@@ -154,6 +154,8 @@ int main(void)
   // Inicialización similar al setup() de Arduino
   setup();
 
+  // Led de encendido inicial
+  HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_SET);  // Encender
   // Envío inicial usando cola
   CDC_Transmit_Queued((uint8_t*)"G-code listo\r\n", 14); 
   
@@ -303,73 +305,6 @@ static void MX_GPIO_Init(void)
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
-
-/* USER CODE BEGIN 4 */
-// void arc_move_r(float x_end, float y_end, float r, int clockwise) {
-//     float x0 = currentX;
-//     float y0 = currentY;
-//     float x1 = x_end* STEPS_PER_MM_X; // Convertir a pasos
-//     float y1 = y_end* STEPS_PER_MM_Y; // Convertir a pasos
-//     r = r * STEPS_PER_MM_X; // Convertir radio a pasos
-
-//     float dx = x1 - x0;
-//     float dy = y1 - y0;
-//     float d_sq = dx * dx + dy * dy;
-//     float d = sqrtf(d_sq);
-
-//     if (d > 2.0f * fabsf(r)) {
-//         printf("Error: radio demasiado pequeño para unir los puntos\n");
-//         return;
-//     }
-
-//     // Punto medio
-//     float mx = (x0 + x1) * 0.5f;
-//     float my = (y0 + y1) * 0.5f;
-
-//     // Altura del centro al punto medio
-//     float h = sqrtf(fabsf(r * r - (d_sq * 0.25f)));
-
-//     // Vector normalizado perpendicular
-//     float nx = -dy / d;
-//     float ny = dx / d;
-
-//     float cx, cy;
-
-//     if (clockwise) {
-//         cx = mx + nx * h;
-//         cy = my + ny * h;
-//     } else {
-//         cx = mx - nx * h;
-//         cy = my - ny * h;
-//     }
-
-//     // Punto inicial relativo al centro
-//     float x = x0 - cx;
-//     float y = y0 - cy;
-
-//     // Ángulo total recorrido
-//     float theta = (clockwise ? -1.0f : 1.0f) * 2.0f * acosf((dx * dx + dy * dy) / (2.0f * r * r));
-
-//     // Paso angular
-//     float angle_per_segment = theta / SEGMENTS;
-
-//     // Precalcular seno y coseno del paso
-//     float cos_t = 1.0f - 0.5f * angle_per_segment * angle_per_segment;  // cos(Δθ) ≈ 1 - Δθ²/2
-//     float sin_t = angle_per_segment;  // sin(Δθ) ≈ Δθ (bueno para Δθ pequeño)
-
-//     // Interpolación
-//     for (int i = 0; i < SEGMENTS; ++i) {
-//         float x_new = x * cos_t - y * sin_t;
-//         float y_new = x * sin_t + y * cos_t;
-//         x = x_new;
-//         y = y_new;
-//         moveAxesWithFeedRate((cx + x)/STEPS_PER_MM_X, (cy + y)/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
-//     }
-
-//     // Asegurar posición final exacta
-//     moveAxesWithFeedRate(x_end/STEPS_PER_MM_X, y_end/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
-// }
-//moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
 
 void processGcode(const char* command) {
     // Comandos especiales para control de programa
@@ -523,8 +458,18 @@ void setup(void) {
     enableSteppers();
 
     // Asegurar que LEDs estén apagados al inicio
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_RESET);
+
+    // Secuencia de 3 parpadeos de los LEDs de chequeo y error
+    for (int i = 0; i < 3; i++) {
+        HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
+        HAL_Delay(150);
+        HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_RESET);
+        HAL_Delay(150);
+    }
     
     // Inicializar parser G-code modular con callbacks
     gc_init();
@@ -947,6 +892,9 @@ void runProgram(void) {
     
     isProgramRunning = true;
     currentExecutingLine = 0;
+
+    //revisar_gcode(*gcodeProgram, programLineCount);
+
 
     sprintf(outputBuffer, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
     sendUSBText(outputBuffer);

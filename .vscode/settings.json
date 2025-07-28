@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.rmd": "markdown",
+        "*.m": "matlab",
+        "config.h": "c"
+    }
+}

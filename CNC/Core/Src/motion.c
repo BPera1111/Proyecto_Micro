@@ -111,24 +111,11 @@ void X_move(int32_t steps, bool dir) {
     // Configura dirección
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-    // Enciende el LED correspondiente al sentido
-    if (dir) {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
-    }
-
     // Ejecuta los pasos
     for (int32_t i = 0; i < steps; i++) {
         X_stepOnce();
         delay_us(STEP_DELAY_US);
     }
-
-    // Apaga ambos LEDs al terminar
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
 }
 
 /**
@@ -140,25 +127,11 @@ void X_move(int32_t steps, bool dir) {
 void Y_move(int32_t steps, bool dir) {
     // Configura dirección
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, dir ? GPIO_PIN_SET : GPIO_PIN_RESET);
-
-    // Enciende el LED correspondiente al sentido
-    if (dir) {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
-    }
-
     // Ejecuta los pasos
     for (int32_t i = 0; i < steps; i++) {
         Y_stepOnce();
         delay_us(STEP_DELAY_US);
     }
-
-    // Apaga ambos LEDs al terminar
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
 }
 
 /**
@@ -170,25 +143,11 @@ void Y_move(int32_t steps, bool dir) {
 void Z_move(int32_t steps, bool dir) {
     // Configura dirección
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, dir ? GPIO_PIN_RESET : GPIO_PIN_SET);
-
-    // Enciende el LED correspondiente al sentido
-    if (dir) {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
-    } else {
-        HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_SET);
-    }
-
     // Ejecuta los pasos
     for (int32_t i = 0; i < steps; i++) {
         Z_stepOnce();
         delay_us(STEP_DELAY_US);
     }
-
-    // Apaga ambos LEDs al terminar
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
 }
 
 // ===========================================================================================
@@ -311,8 +270,6 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     int32_t errorY = maxSteps / 2;
     int32_t errorZ = maxSteps / 2;
     
-    // Encender LED indicador de movimiento
-    HAL_GPIO_WritePin(GPIOB, isRapid ? LED_ANTIHORARIO : LED_HORARIO, GPIO_PIN_SET);
     
     // Ejecutar pasos interpolados con feed rate controlado
     for (int32_t step = 0; step < maxSteps; step++) {
@@ -348,9 +305,6 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
         delay_us(step_delay);
     }
     
-    // Apagar LEDs
-    HAL_GPIO_WritePin(GPIOB, LED_HORARIO, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, LED_ANTIHORARIO, GPIO_PIN_RESET);
     
     // Actualizar posiciones actuales
     currentX = targetX;
@@ -461,4 +415,100 @@ void setCurrentPositionMM(float x_mm, float y_mm, float z_mm) {
     currentX = (int32_t)(x_mm * STEPS_PER_MM_X);
     currentY = (int32_t)(y_mm * STEPS_PER_MM_Y);
     currentZ = (int32_t)(z_mm * STEPS_PER_MM_Z);
+}
+
+void revisar_gcode(char *gcode, int lineCount) {
+    typedef struct {
+        double x, y;
+    } Punto;
+
+    double grados(double rad) {
+        return rad * 180.0 / PI;
+    }
+
+    double distancia(Punto a, Punto b) {
+        return hypot(b.x - a.x, b.y - a.y);
+    }
+
+    Punto normalizar(Punto v) {
+        double mag = hypot(v.x, v.y);
+        Punto n = { v.x / mag, v.y / mag };
+        return n;
+    }
+
+    double dot(Punto a, Punto b) {
+        return a.x * b.x + a.y * b.y;
+    }
+
+    double cross(Punto a, Punto b) {
+        return a.x * b.y - a.y * b.x;
+    }
+
+    Punto resta(Punto a, Punto b) {
+        Punto r = { a.x - b.x, a.y - b.y };
+        return r;
+    }
+
+    Punto suma(Punto a, Punto b) {
+        Punto s = { a.x + b.x, a.y + b.y };
+        return s;
+    }
+
+    Punto escalar(Punto v, double f) {
+        Punto r = { v.x * f, v.y * f };
+        return r;
+    }
+
+    void imprimir_g1(Punto p) {
+        printf("G1 X%.3f Y%.3f\n", p.x, p.y);
+    }
+
+    void imprimir_arco(Punto inicio, Punto fin, double radio, int clockwise) {
+        printf("%s X%.3f Y%.3f R%.3f\n", clockwise ? "G2" : "G3", fin.x, fin.y, radio);
+    }
+
+
+    Punto ruta[] = {
+        {0, 0},
+        {10, 0},
+        {10, 10},
+        {20, 10}
+    };
+    int n = sizeof(ruta) / sizeof(Punto);
+
+    for (int i = 0; i < n; ++i) {
+        if (i == 0 || i == n - 1) {
+            imprimir_g1(ruta[i]);
+        } else {
+            Punto p0 = ruta[i - 1];
+            Punto p1 = ruta[i];
+            Punto p2 = ruta[i + 1];
+
+            Punto v1 = resta(p1, p0);
+            Punto v2 = resta(p2, p1);
+
+            Punto v1n = normalizar(v1);
+            Punto v2n = normalizar(v2);
+
+            double angulo = acos(fmax(-1.0, fmin(1.0, dot(v1n, v2n))));
+            if (grados(angulo) > ANGULO_MIN) {
+                imprimir_g1(p1);
+                continue;
+            }
+
+            double offset = fmin(fmin(distancia(p0, p1), distancia(p1, p2)), RADIO_SUAVIZADO);
+            Punto p1a = resta(p1, escalar(v1n, offset));
+            Punto p1b = suma(p1, escalar(v2n, offset));
+            int cw = cross(v1n, v2n) < 0;
+
+            imprimir_g1(p1a);
+            imprimir_arco(p1a, p1b, offset, cw);
+            imprimir_g1(p1b);
+        }
+    }
+
+    // Aquí se implementaría la lógica para revisar el G-code
+    // Por ejemplo, verificar sintaxis, comandos válidos, etc.
+    // Retornar un código de error o éxito según corresponda
+    return 0; // 0 indica éxito, otros valores indicarían errores específicos
 }
