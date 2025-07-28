@@ -1105,3 +1105,11 @@
 2025-07-25 17:56:20,310 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
 2025-07-25 17:56:20,312 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] 	at java.lang.Thread.run(Thread.java:748)
 2025-07-25 19:50:56,269 [INFO] BlockDiagram:1827 - stop enableDisableButtons
+2025-07-27 23:39:30,061 [INFO] Activator:176 - 
+
+
+2025-07-27 23:39:30,072 [INFO] Activator:177 - !SESSION log4j initialized
+2025-07-27 23:39:32,269 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] Managed Build system manifest file error: Option com.st.stm32cube.ide.mcu.debug.option.cpuclock.117101534 uses a null category that is invalid in its context. The option was ignored.
+2025-07-27 23:39:32,897 [ERROR] LogOutputStream:74 - [STDERR_REDIRECT] Managed Build system manifest file error: Option com.st.stm32cube.ide.mcu.debug.option.cpuclock.68927820 uses a null category that is invalid in its context. The option was ignored.
+2025-07-27 23:40:13,553 [INFO] RetryExec:97 - I/O exception (java.net.SocketException) caught when processing request to {s}->https://sw-center.st.com:443: Socket Closed
+2025-07-27 23:40:13,556 [INFO] RetryExec:113 - Retrying request to {s}->https://sw-center.st.com:443

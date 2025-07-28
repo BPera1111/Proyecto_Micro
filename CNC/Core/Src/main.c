@@ -644,32 +644,31 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
 void arc_move_r(float x_end, float y_end, float r, int clockwise) {
     float x0 = currentX;
     float y0 = currentY;
-    float x1 = x_end * STEPS_PER_MM_X;
-    float y1 = y_end * STEPS_PER_MM_Y;
+    float x1 = x_end* STEPS_PER_MM_X; // Convertir a pasos
+    float y1 = y_end* STEPS_PER_MM_Y; // Convertir a pasos
     r = r * STEPS_PER_MM_X; // Convertir radio a pasos
 
     float dx = x1 - x0;
     float dy = y1 - y0;
-    float d = sqrt(dx * dx + dy * dy);
+    float d_sq = dx * dx + dy * dy;
+    float d = sqrtf(d_sq);
 
-    if (d > 2 * fabs(r)) {
-        // printf("Error: el radio es muy pequeño para unir los puntos.\n");
-        sendUSBText("Error: el radio es muy pequeño para unir los puntos.\r\n");
+    if (d > 2.0f * fabsf(r)) {
+        printf("Error: radio demasiado pequeño para unir los puntos\n");
         return;
     }
 
-    // Punto medio entre inicio y fin
-    float mx = (x0 + x1) / 2;
-    float my = (y0 + y1) / 2;
+    // Punto medio
+    float mx = (x0 + x1) * 0.5f;
+    float my = (y0 + y1) * 0.5f;
 
-    // Altura desde el punto medio al centro
-    float h = sqrt(r * r - (d / 2) * (d / 2));
+    // Altura del centro al punto medio
+    float h = sqrtf(fabsf(r * r - (d_sq * 0.25f)));
 
-    // Vector perpendicular normalizado
+    // Vector normalizado perpendicular
     float nx = -dy / d;
     float ny = dx / d;
 
-    // Determinar centro en una de las dos direcciones posibles
     float cx, cy;
 
     if (clockwise) {
@@ -680,24 +679,88 @@ void arc_move_r(float x_end, float y_end, float r, int clockwise) {
         cy = my - ny * h;
     }
 
-    // Ángulos
-    float start_angle = atan2(y0 - cy, x0 - cx);
-    float end_angle = atan2(y1 - cy, x1 - cx);
-    float total_angle = end_angle - start_angle;
+    // Punto inicial relativo al centro
+    float x = x0 - cx;
+    float y = y0 - cy;
 
-    if (clockwise && total_angle > 0) {
-        total_angle -= 2 * PI;
-    } else if (!clockwise && total_angle < 0) {
-        total_angle += 2 * PI;
+    // Ángulo total recorrido
+    float theta = (clockwise ? -1.0f : 1.0f) * 2.0f * acosf((dx * dx + dy * dy) / (2.0f * r * r));
+
+    // Paso angular
+    float angle_per_segment = theta / SEGMENTS;
+
+    // Precalcular seno y coseno del paso
+    float cos_t = 1.0f - 0.5f * angle_per_segment * angle_per_segment;  // cos(Δθ) ≈ 1 - Δθ²/2
+    float sin_t = angle_per_segment;  // sin(Δθ) ≈ Δθ (bueno para Δθ pequeño)
+
+    // Interpolación
+    for (int i = 0; i < SEGMENTS; ++i) {
+        float x_new = x * cos_t - y * sin_t;
+        float y_new = x * sin_t + y * cos_t;
+        x = x_new;
+        y = y_new;
+        moveAxesWithFeedRate((cx + x)/STEPS_PER_MM_X, (cy + y)/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
     }
 
-    for (int i = 1; i <= SEGMENTS; i++) {
-        float angle = start_angle + total_angle * ((float)i / SEGMENTS);
-        float x = cx + r * cos(angle);
-        float y = cy + r * sin(angle);
-        moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
-    }
+    // Asegurar posición final exacta
+    moveAxesWithFeedRate(x_end/STEPS_PER_MM_X, y_end/STEPS_PER_MM_Y, currentZ/STEPS_PER_MM_Z, rapidRate, true);
 }
+//moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
+    // float x0 = currentX;
+    // float y0 = currentY;
+    // float x1 = x_end * STEPS_PER_MM_X;
+    // float y1 = y_end * STEPS_PER_MM_Y;
+    // r = r * STEPS_PER_MM_X; // Convertir radio a pasos
+
+    // float dx = x1 - x0;
+    // float dy = y1 - y0;
+    // float d = sqrt(dx * dx + dy * dy);
+
+    // if (d > 2 * fabs(r)) {
+    //     // printf("Error: el radio es muy pequeño para unir los puntos.\n");
+    //     sendUSBText("Error: el radio es muy pequeño para unir los puntos.\r\n");
+    //     return;
+    // }
+
+    // // Punto medio entre inicio y fin
+    // float mx = (x0 + x1) / 2;
+    // float my = (y0 + y1) / 2;
+
+    // // Altura desde el punto medio al centro
+    // float h = sqrt(r * r - (d / 2) * (d / 2));
+
+    // // Vector perpendicular normalizado
+    // float nx = -dy / d;
+    // float ny = dx / d;
+
+    // // Determinar centro en una de las dos direcciones posibles
+    // float cx, cy;
+
+    // if (clockwise) {
+    //     cx = mx + nx * h;
+    //     cy = my + ny * h;
+    // } else {
+    //     cx = mx - nx * h;
+    //     cy = my - ny * h;
+    // }
+
+    // // Ángulos
+    // float start_angle = atan2(y0 - cy, x0 - cx);
+    // float end_angle = atan2(y1 - cy, x1 - cx);
+    // float total_angle = end_angle - start_angle;
+
+    // if (clockwise && total_angle > 0) {
+    //     total_angle -= 2 * PI;
+    // } else if (!clockwise && total_angle < 0) {
+    //     total_angle += 2 * PI;
+    // }
+
+    // for (int i = 1; i <= SEGMENTS; i++) {
+    //     float angle = start_angle + total_angle * ((float)i / SEGMENTS);
+    //     float x = cx + r * cos(angle);
+    //     float y = cy + r * sin(angle);
+    //     moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
+    // }
 
 
 void processGcode(const char* command) {
@@ -1039,8 +1102,8 @@ void performHoming(void) {
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
-    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
     // Mover hacia el final de carrera X (dirección negativa)
+    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
     while (!isEndstopPressed('X')) {
         X_stepOnce();
         delay_us(STEP_DELAY_US);
@@ -1080,6 +1143,8 @@ void performHoming(void) {
     sprintf(outputBuffer, "Homing eje Y...\r\n");
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    CDC_TxQueue_Process();
 
     // Mover hacia el final de carrera Y (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
@@ -1121,6 +1186,8 @@ void performHoming(void) {
     sprintf(outputBuffer, "Homing eje Z...\r\n");
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    CDC_TxQueue_Process();
 
     // Mover hacia el final de carrera Z (dirección negativa)
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
