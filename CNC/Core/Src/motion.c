@@ -418,55 +418,112 @@ void setCurrentPositionMM(float x_mm, float y_mm, float z_mm) {
 }
 
 void revisar_gcode(char *gcode, int lineCount) {
+
     typedef struct {
         double x, y;
+        int tiene_x, tiene_y;
     } Punto;
 
-    double grados(double rad) {
-        return rad * 180.0 / PI;
-    }
+    // ---- Funciones vectoriales ----
+    typedef struct {
+        double x, y;
+    } Vec2;
 
-    double distancia(Punto a, Punto b) {
-        return hypot(b.x - a.x, b.y - a.y);
-    }
-
-    Punto normalizar(Punto v) {
-        double mag = hypot(v.x, v.y);
-        Punto n = { v.x / mag, v.y / mag };
-        return n;
-    }
-
-    double dot(Punto a, Punto b) {
-        return a.x * b.x + a.y * b.y;
-    }
-
-    double cross(Punto a, Punto b) {
-        return a.x * b.y - a.y * b.x;
-    }
-
-    Punto resta(Punto a, Punto b) {
-        Punto r = { a.x - b.x, a.y - b.y };
+    Vec2 resta(Vec2 a, Vec2 b) {
+        Vec2 r = { a.x - b.x, a.y - b.y };
         return r;
     }
 
-    Punto suma(Punto a, Punto b) {
-        Punto s = { a.x + b.x, a.y + b.y };
+    Vec2 suma(Vec2 a, Vec2 b) {
+        Vec2 s = { a.x + b.x, a.y + b.y };
         return s;
     }
 
-    Punto escalar(Punto v, double f) {
-        Punto r = { v.x * f, v.y * f };
+    Vec2 escalar(Vec2 v, double f) {
+        Vec2 r = { v.x * f, v.y * f };
         return r;
     }
 
-    void imprimir_g1(Punto p) {
-        printf("G1 X%.3f Y%.3f\n", p.x, p.y);
+    Vec2 normalizar(Vec2 v) {
+        double mag = hypot(v.x, v.y);
+        Vec2 n = { v.x / mag, v.y / mag };
+        return n;
     }
 
-    void imprimir_arco(Punto inicio, Punto fin, double radio, int clockwise) {
-        printf("%s X%.3f Y%.3f R%.3f\n", clockwise ? "G2" : "G3", fin.x, fin.y, radio);
+    double dot(Vec2 a, Vec2 b) {
+        return a.x * b.x + a.y * b.y;
     }
 
+    double cross(Vec2 a, Vec2 b) {
+        return a.x * b.y - a.y * b.x;
+    }
+
+    double grados(double rad) {
+        return rad * 180.0 / M_PI;
+    }
+
+    // ---- G-code parsing ----
+    Punto parsear_linea_g1(char *linea, double ultimo_x, double ultimo_y) {
+        Punto p = { .x = ultimo_x, .y = ultimo_y, .tiene_x = 0, .tiene_y = 0 };
+        char *ptr;
+
+        ptr = strstr(linea, "X");
+        if (ptr) {
+            p.x = atof(ptr + 1);
+            p.tiene_x = 1;
+        }
+
+        ptr = strstr(linea, "Y");
+        if (ptr) {
+            p.y = atof(ptr + 1);
+            p.tiene_y = 1;
+        }
+
+        return p;
+    }
+
+    // ---- G-code output ----
+    void imprimir_g1(double x, double y) {
+        printf("G1 X%.3f Y%.3f\n", x, y);
+    }
+
+    void imprimir_arco(double x1, double y1, double x2, double y2, double r, int clockwise) {
+        printf("%s X%.3f Y%.3f R%.3f\n", clockwise ? "G2" : "G3", x2, y2, r);
+    }
+
+    // ---- Suavizado de ruta ----
+    void suavizar_ruta(Vec2 *ruta, int n, double radio) {
+        for (int i = 0; i < n; ++i) {
+            if (i == 0 || i == n - 1) {
+                imprimir_g1(ruta[i].x, ruta[i].y);
+            } else {
+                Vec2 p0 = ruta[i - 1];
+                Vec2 p1 = ruta[i];
+                Vec2 p2 = ruta[i + 1];
+
+                Vec2 v1 = resta(p1, p0);
+                Vec2 v2 = resta(p2, p1);
+
+                Vec2 v1n = normalizar(v1);
+                Vec2 v2n = normalizar(v2);
+
+                double angulo = acos(fmax(-1.0, fmin(1.0, dot(v1n, v2n))));
+                if (grados(angulo) > ANGULO_MIN) {
+                    imprimir_g1(p1.x, p1.y);
+                    continue;
+                }
+
+                double offset = fmin(fmin(hypot(v1.x, v1.y), hypot(v2.x, v2.y)), radio);
+                Vec2 p1a = resta(p1, escalar(v1n, offset));
+                Vec2 p1b = suma(p1, escalar(v2n, offset));
+                int cw = cross(v1n, v2n) < 0;
+
+                imprimir_g1(p1a.x, p1a.y);
+                imprimir_arco(p1a.x, p1a.y, p1b.x, p1b.y, offset, cw);
+                imprimir_g1(p1b.x, p1b.y);
+            }
+        }
+    }
 
     Punto ruta[] = {
         {0, 0},
