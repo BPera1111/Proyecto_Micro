@@ -19,7 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-#include "usbd_cdc_if.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
@@ -108,7 +108,7 @@ const uint16_t STEP_DELAY_VALUE = STEP_DELAY_US;  // Usar valor de config.h
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-//static void MX_USART2_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void loop(void);
 void setup(void);
@@ -143,27 +143,52 @@ void showQueueStatus(void);  // Nueva función de diagnóstico
   */
 int main(void)
 {
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+    // Inicializar cola de transmisión USB CDC
+    CDC_TxQueue_Init();
+
+    // Inicialización similar al setup() de Arduino
+    setup();
+
+    // Led de encendido inicial
+    HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_SET);  // Encender
+    // Envío inicial usando cola
+    CDC_Transmit_Queued((uint8_t*)"G-code listo\r\n", 14); 
+
+    #if DEBUG_MESSAGES
+    // Mensaje adicional de debug
+    CDC_Transmit_Queued((uint8_t*)"Sistema iniciado - Esperando comandos...\r\n", 42);
+    #endif
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USB_DEVICE_Init();  // Inicia USB CDC
+  MX_USART2_UART_Init();
+  MX_USB_DEVICE_Init();
+  /* USER CODE BEGIN 2 */
 
-  // Inicializar cola de transmisión USB CDC
-  CDC_TxQueue_Init();
+  /* USER CODE END 2 */
 
-  // Inicialización similar al setup() de Arduino
-  setup();
-
-  // Led de encendido inicial
-  HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_SET);  // Encender
-  // Envío inicial usando cola
-  CDC_Transmit_Queued((uint8_t*)"G-code listo\r\n", 14); 
-  
-  #if DEBUG_MESSAGES
-  // Mensaje adicional de debug
-  CDC_Transmit_Queued((uint8_t*)"Sistema iniciado - Esperando comandos...\r\n", 42);
-  #endif
-
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
   while (1)
   {
     // Procesar cola de transmisión USB CDC
@@ -174,14 +199,19 @@ int main(void)
     
     // Pausa optimizada para reducir carga del procesador y terminal
     HAL_Delay(50);  // 50ms = 20Hz, reduce carga significativamente
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
+  /* USER CODE END 3 */
 }
 
 /**
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void){
+void SystemClock_Config(void)
+{
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
@@ -227,33 +257,33 @@ void SystemClock_Config(void){
   * @param None
   * @retval None
   */
-//static void MX_USART2_UART_Init(void)
-//{
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
 //
-//  /* USER CODE BEGIN USART2_Init 0 */
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
 //
-//  /* USER CODE END USART2_Init 0 */
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
 //
-//  /* USER CODE BEGIN USART2_Init 1 */
-//
-//  /* USER CODE END USART2_Init 1 */
-//  huart2.Instance = USART2;
-//  huart2.Init.BaudRate = 9600;
-//  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-//  huart2.Init.StopBits = UART_STOPBITS_1;
-//  huart2.Init.Parity = UART_PARITY_NONE;
-//  huart2.Init.Mode = UART_MODE_TX_RX;
-//  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-//  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-//  if (HAL_UART_Init(&huart2) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
-//  /* USER CODE BEGIN USART2_Init 2 */
-//
-//  /* USER CODE END USART2_Init 2 */
-//
-//}
+  /* USER CODE END USART2_Init 2 */
+
+}
 
 /**
   * @brief GPIO Initialization Function
@@ -273,16 +303,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_6
-                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4
+                          |GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PB0 PB3 PB4 PB6
-                           PB7 PB8 PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_6
-                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pins : PB0 PB1 PB3 PB4
+                           PB6 PB7 PB8 PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4
+                          |GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -290,8 +320,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PB12 PB13 PB14 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PA8 PA9 PA10 */
@@ -301,11 +331,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
+/* USER CODE BEGIN 4 */
 void processGcode(const char* command) {
     // Comandos especiales para control de programa
     if (strncmp(command, "PROGRAM_START", 13) == 0) {
@@ -640,7 +675,7 @@ bool isEndstopPressed(char axis) {
 // Función de homing para todos los ejes
 void performHoming(void) {
     // char msg[80];
-    
+    HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
     // Enviar mensaje de inicio de homing
     sendUSBText("Iniciando secuencia de homingg...\r\n");
     
@@ -779,6 +814,9 @@ void performHoming(void) {
     sprintf(outputBuffer, "Homing completado. Todos los ejes en posición home.\r\n");
     sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
+
+    // Rehabilitar interrupciones
+    HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 // =============================================================================
@@ -892,8 +930,16 @@ void runProgram(void) {
     
     isProgramRunning = true;
     currentExecutingLine = 0;
-
-    //revisar_gcode(*gcodeProgram, programLineCount);
+    // Sobrescribir gcodeProgram con el contenido de prueba
+    strcpy(gcodeProgram[0], "G1 X20 Y20 Z0 F1000");
+    strcpy(gcodeProgram[1], "G0 X20 Y100 Z0");
+    strcpy(gcodeProgram[2], "G0 X100 Y100 Z0");
+    strcpy(gcodeProgram[3], "G1 X100 Y20 Z0 F1000");
+    strcpy(gcodeProgram[4], "G1 X20 Y20 Z0");
+    programLineCount = 5;
+    int suavizadoLineCount = 0;
+    char gCodeRevisado[2*MAX_GCODE_LINES][MAX_LINE_LENGTH];
+    revisar_gcode(gcodeProgram, programLineCount, gCodeRevisado, &suavizadoLineCount);
 
 
     sprintf(outputBuffer, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
@@ -907,13 +953,13 @@ void runProgram(void) {
             break;
         }
 
-        sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+        sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gCodeRevisado[currentExecutingLine]);
         sendUSBText(outputBuffer);
         memset(outputBuffer, 0, sizeof(outputBuffer));
 
         // Crear una copia temporal para evitar recursión
         char temp_command[MAX_LINE_LENGTH];
-        strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
+        strncpy(temp_command, gCodeRevisado[currentExecutingLine], MAX_LINE_LENGTH - 1);
         temp_command[MAX_LINE_LENGTH - 1] = '\0';
         
         // Ejecutar el comando directamente usando el parser modular
@@ -1097,6 +1143,38 @@ void showQueueStatus(void) {
 
 /* USER CODE END 4 */
 
+/* USER CODE BEGIN 5 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    // Tu código de interrupción aquí
+    static uint32_t lastInterruptTime = 0;
+    uint32_t currentTime = HAL_GetTick();
+    
+    if (currentTime - lastInterruptTime < 50) return; // Debounce
+    lastInterruptTime = currentTime;
+    
+    switch(GPIO_Pin) {
+        case GPIO_PIN_12: // X_MIN_PIN
+            if (currentX != 0) endstop_error_handler('X');
+            break;
+        case GPIO_PIN_13: // Y_MIN_PIN  
+            if (currentY != 0) endstop_error_handler('Y');
+            break;
+        case GPIO_PIN_14: // Z_MIN_PIN
+            if (currentZ != 0) endstop_error_handler('Z');
+            break;
+    }
+}
+
+void endstop_error_handler(char axis)
+{
+    disableSteppers();
+    sprintf(outputBuffer, "ERROR: Final de carrera %c presionado fuera de home!\r\n", axis);
+    CDC_Transmit_Queued((uint8_t*)outputBuffer, strlen(outputBuffer));
+    HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
+}
+/* USER CODE END 5 */
+
 /**
   * @brief  This function is executed in case of error occurrence.
   * @retval None
@@ -1106,8 +1184,19 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+    // Detener todos los motores de forma segura
+  disableSteppers();
+  
+  // Enviar mensaje de error por USB CDC
+  CDC_Transmit_Queued((uint8_t*)"ERROR CRITICO DEL SISTEMA\r\n", 27);
+  
+  // LED de error
+  HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
   while (1)
   {
+        // Parpadear LED de error
+    HAL_GPIO_TogglePin(GPIOB, LED_ERROR);
+    HAL_Delay(500);
   }
   /* USER CODE END Error_Handler_Debug */
 }

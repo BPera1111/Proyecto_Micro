@@ -34,7 +34,6 @@
 #define PI 3.14159265358979323846
 
 // Configuración de tolerancia para rectas consecutivas
-#define MAX_LINEAS 100
 #define RADIO_SUAVIZADO 2.0
 #define ANGULO_MIN 175.0
 
