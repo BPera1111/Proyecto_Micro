@@ -13,13 +13,3 @@
 ../Core/Src/motion.c:401:6:getCurrentPositionMM	16	static
 ../Core/Src/motion.c:412:6:setCurrentPosition	0	static
 ../Core/Src/motion.c:423:6:setCurrentPositionMM	16	static
-../Core/Src/motion.c:441:6:resta	16	static
-../Core/Src/motion.c:446:6:suma	16	static
-../Core/Src/motion.c:451:6:escalar	24	static
-../Core/Src/motion.c:456:6:normalizar	32	static
-../Core/Src/motion.c:462:8:dot	32	static
-../Core/Src/motion.c:466:8:cross	32	static
-../Core/Src/motion.c:470:8:grados	8	static
-../Core/Src/motion.c:474:7:parsear_linea_g1	56	static
-../Core/Src/motion.c:499:6:suavizarGcode	5536	static
-../Core/Src/motion.c:588:6:revisar_gcode	0	static

@@ -145,13 +145,16 @@ void performHoming(void);
 void showConfiguration(void);
 void sendUSBMessage(const uint8_t* data, uint16_t length);
 
+// Nuevos callbacks para el planner
+void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
+void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
+void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined);
+void moveAxesArcCallback(float x, float y, float r, bool clockwise);
+void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
+void performHomingCallback(void);
+
 // Variables externas que el parser necesita acceder
 extern int32_t currentX, currentY, currentZ;
-
-// Constantes de configuración de hardware
-extern const uint16_t STEPS_PER_MM_X;
-extern const uint16_t STEPS_PER_MM_Y;
-extern const uint16_t STEPS_PER_MM_Z;
 
 #ifdef __cplusplus
 }

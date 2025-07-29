@@ -87,6 +87,17 @@
 #define MAX_LINE_LENGTH 80     // Longitud máxima de cada línea de G-code
 
 // ===========================================================================================
+// CONFIGURACIÓN DEL PLANNER LOOKAHEAD
+// ===========================================================================================
+
+// Buffer del planner para lookahead
+#define PLANNER_BUFFER_SIZE 8           // Buffer de 8 líneas lookahead
+#define MAX_VELOCITY_CHANGE 500.0f      // Cambio máximo de velocidad (mm/min)
+#define JUNCTION_DEVIATION 0.1f         // Desviación permitida en juntas (mm)
+#define ACCELERATION 1000.0f            // Aceleración por defecto (mm/min²)
+#define MIN_SEGMENT_TIME_US 20000       // Tiempo mínimo de segmento (20ms)
+
+// ===========================================================================================
 // CÓDIGOS DE ALARMA Y ERROR
 // ===========================================================================================
 

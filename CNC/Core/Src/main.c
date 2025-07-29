@@ -33,6 +33,7 @@
 #include "gcode_parser.h"
 #include "config.h"
 #include "motion.h"
+#include "planner.h"
 //#include "usart.h"
 /* USER CODE END Includes */
 
@@ -118,6 +119,7 @@ void performHoming(void);
 bool isEndstopPressed(char axis);
 void showConfiguration(void);
 void report_status_message(uint8_t status_code);
+void endstop_error_handler(char axis);
 
 // Funciones para manejo de programa G-code
 void startProgramStorage(void);
@@ -130,6 +132,15 @@ void pauseProgram(void);
 void stopProgram(void);
 void showHelp(void);
 void showQueueStatus(void);  // Nueva función de diagnóstico
+void showProgramStatus(void); // Nueva función para estado del programa
+
+// Funciones para integración con planner
+void showPlannerStatus(void);
+void processPlannerBuffer(void);
+void processProgram(void);  // Nueva función para ejecutar programa progresivamente
+
+// Variables de control del planner
+bool plannerEnabled = true;  // Control para habilitar/deshabilitar planner
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -367,12 +378,41 @@ void processGcode(const char* command) {
         runNextLine();
         return;
     }
+    else if (strncmp(command, "PROGRAM_STATUS", 14) == 0) {
+        showProgramStatus();
+        return;
+    }
     else if (strncmp(command, "HELP", 4) == 0 || strncmp(command, "help", 4) == 0) {
         showHelp();
         return;
     }
     else if (strncmp(command, "QUEUE_STATUS", 12) == 0) {
         showQueueStatus();
+        return;
+    }
+    else if (strncmp(command, "PLANNER_STATUS", 14) == 0) {
+        showPlannerStatus();
+        return;
+    }
+    else if (strncmp(command, "PLANNER_ENABLE", 14) == 0) {
+        plannerEnabled = true;
+        sendUSBText("Planner habilitado\r\n");
+        return;
+    }
+    else if (strncmp(command, "PLANNER_DISABLE", 15) == 0) {
+        plannerEnabled = false;
+        planner_synchronize(); // Esperar que termine el buffer actual
+        sendUSBText("Planner deshabilitado\r\n");
+        return;
+    }
+    else if (strncmp(command, "PLANNER_SYNC", 12) == 0) {
+        planner_synchronize();
+        sendUSBText("Planner sincronizado\r\n");
+        return;
+    }
+    else if (strncmp(command, "PLANNER_RESET", 13) == 0) {
+        planner_reset();
+        sendUSBText("Planner reiniciado\r\n");
         return;
     }
     else if (strncmp(command, "FIN", 3) == 0 || strncmp(command, "fin", 3) == 0) {
@@ -434,6 +474,8 @@ void loop(void) {
     #if DEBUG_MESSAGES
     // Heartbeat para confirmar que el sistema está funcionando
     static uint32_t lastHeartbeat = 0;
+    uint32_t currentTime = HAL_GetTick();  // Declarar currentTime
+    
     // Debug: mostrar tiempo actual
     char debugMsg[50];
     sprintf(debugMsg, "[DEBUG] Tiempo actual: %lu\r\n", currentTime);
@@ -446,6 +488,16 @@ void loop(void) {
         sendUSBText("[HEARTBEAT] Sistema activo\r\n");
     }
     #endif
+    
+    // Procesar buffer del planner (alta prioridad)
+    if (plannerEnabled) {
+        processPlannerBuffer();
+    }
+    
+    // Procesar programa en ejecución (si corresponde)
+    if (isProgramRunning) {
+        processProgram();
+    }
     
     // Procesar comandos USB CDC - SOLO cuando hay un comando completo
     if (usbCommandComplete) {
@@ -508,6 +560,9 @@ void setup(void) {
     
     // Inicializar parser G-code modular con callbacks
     gc_init();
+    
+    // Inicializar planner lookahead
+    planner_init();
 }
 
 // Nota: El callback USB CDC está implementado en usbd_cdc_if.c
@@ -532,6 +587,19 @@ void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defin
     if (z_defined) {
         currentZ = z * STEPS_PER_MM_Z;
     }
+    
+    // Actualizar posición del planner también
+    if (plannerEnabled) {
+        float planner_pos[3];
+        planner_get_current_position(planner_pos);
+        
+        if (x_defined) planner_pos[0] = x;
+        if (y_defined) planner_pos[1] = y;
+        if (z_defined) planner_pos[2] = z;
+        
+        planner_set_current_position(planner_pos);
+    }
+    
     // char setMsg[100];
     
     // Convertir posiciones a enteros para evitar problemas con printf float
@@ -552,42 +620,105 @@ void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defin
     memset(outputBuffer, 0, sizeof(outputBuffer));
 }
 
-// Callback para movimiento de ejes
+// Callback para movimiento de ejes - Integrado con planner
 void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
-    float target_x = x_defined ? x : NAN;
-    float target_y = y_defined ? y : NAN;
-    float target_z = z_defined ? z : NAN;
-    
-    // Usar función con feed rate por defecto (para compatibilidad)
-    moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
+    if (plannerEnabled) {
+        // Usar el planner para movimientos suavizados
+        float target[3];
+        planner_get_current_position(target);
+        
+        if (x_defined) target[0] = x;
+        if (y_defined) target[1] = y;
+        if (z_defined) target[2] = z;
+        
+        // Agregar al buffer del planner como movimiento lineal
+        if (!planner_buffer_line(target, currentFeedRate, false)) {
+            sendUSBText("error: buffer planner lleno\r\n");
+        }
+    } else {
+        // Usar movimiento directo (modo compatibilidad)
+        float target_x = x_defined ? x : NAN;
+        float target_y = y_defined ? y : NAN;
+        float target_z = z_defined ? z : NAN;
+        
+        moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
+    }
 }
 
-// Callback específico para movimiento rápido G0
+// Callback específico para movimiento rápido G0 - Integrado con planner
 void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
-    float target_x = x_defined ? x : NAN;
-    float target_y = y_defined ? y : NAN;
-    float target_z = z_defined ? z : NAN;
-    
-    moveAxesWithFeedRate(target_x, target_y, target_z, rapidRate, true);
+    if (plannerEnabled) {
+        // Usar el planner para movimientos suavizados
+        float target[3];
+        planner_get_current_position(target);
+        
+        if (x_defined) target[0] = x;
+        if (y_defined) target[1] = y;
+        if (z_defined) target[2] = z;
+        
+        // Agregar al buffer del planner como movimiento rápido
+        if (!planner_buffer_line(target, rapidRate, true)) {
+            sendUSBText("error: buffer planner lleno\r\n");
+        }
+    } else {
+        // Usar movimiento directo (modo compatibilidad)
+        float target_x = x_defined ? x : NAN;
+        float target_y = y_defined ? y : NAN;
+        float target_z = z_defined ? z : NAN;
+        
+        moveAxesWithFeedRate(target_x, target_y, target_z, rapidRate, true);
+    }
 }
 
-void moveAxesArcCallback(float x, float y, float r, int clockwise) {
-    // Llamar a la función de movimiento de arco
-    arc_move_r(x, y, r, clockwise);
+void moveAxesArcCallback(float x, float y, float r, bool clockwise) {
+    if (plannerEnabled) {
+        // Usar el planner para arcos suavizados
+        float target[3];
+        planner_get_current_position(target);
+        target[0] = x;
+        target[1] = y;
+        // Z se mantiene igual para arcos 2D
+        
+        float offset[2] = {r, 0}; // En modo R, solo se usa el primer elemento
+        
+        // Agregar arco al buffer del planner
+        if (!planner_buffer_arc(target, offset, clockwise, true, currentFeedRate)) {
+            sendUSBText("error: buffer planner lleno o arco inválido\r\n");
+        }
+    } else {
+        // Usar movimiento directo (modo compatibilidad)
+        arc_move_r(x, y, r, clockwise);
+    }
 }
 
-// Callback específico para movimiento lineal G1 con feed rate
+// Callback específico para movimiento lineal G1 con feed rate - Integrado con planner
 void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined) {
-    float target_x = x_defined ? x : NAN;
-    float target_y = y_defined ? y : NAN;
-    float target_z = z_defined ? z : NAN;
-    
     // Actualizar feed rate actual si se especifica
     if (f_defined && feedRate > 0) {
         currentFeedRate = feedRate;
     }
     
-    moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
+    if (plannerEnabled) {
+        // Usar el planner para movimientos suavizados
+        float target[3];
+        planner_get_current_position(target);
+        
+        if (x_defined) target[0] = x;
+        if (y_defined) target[1] = y;
+        if (z_defined) target[2] = z;
+        
+        // Agregar al buffer del planner como movimiento lineal
+        if (!planner_buffer_line(target, currentFeedRate, false)) {
+            sendUSBText("error: buffer planner lleno\r\n");
+        }
+    } else {
+        // Usar movimiento directo (modo compatibilidad)
+        float target_x = x_defined ? x : NAN;
+        float target_y = y_defined ? y : NAN;
+        float target_z = z_defined ? z : NAN;
+        
+        moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
+    }
 }
 // La función CDC_Receive_FS maneja la recepción de datos
 
@@ -603,39 +734,39 @@ void showConfiguration(void) {
     sendUSBText("=== CONFIGURACIÓN CNC ===\r\n");
 
     sprintf(outputBuffer, "Steps per mm X: %d\r\n", STEPS_PER_MM_X);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     sprintf(outputBuffer, "Steps per mm Y: %d\r\n", STEPS_PER_MM_Y);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     sprintf(outputBuffer, "Steps per mm Z: %d\r\n", STEPS_PER_MM_Z);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     sprintf(outputBuffer, "Step delay: %d us\r\n", STEP_DELAY_US);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
     
     // Convertir feed rate actual a enteros
     int feed_int = (int)currentFeedRate;
     int feed_dec = (int)((currentFeedRate - feed_int) * 10);
     sprintf(outputBuffer, "Feed rate actual: %d.%d mm/min\r\n", feed_int, feed_dec);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     // Convertir velocidades a enteros para mostrar
     int rapid_int = (int)rapidRate;
     int rapid_dec = (int)((rapidRate - rapid_int) * 10);
     sprintf(outputBuffer, "Velocidad rápida (G0): %d.%d mm/min\r\n", rapid_int, rapid_dec);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
     
     int max_int = (int)maxFeedRate;
     int max_dec = (int)((maxFeedRate - max_int) * 10);
     sprintf(outputBuffer, "Velocidad máxima: %d.%d mm/min\r\n", max_int, max_dec);
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     // Mostrar posición actual
@@ -653,7 +784,7 @@ void showConfiguration(void) {
 
     sprintf(outputBuffer, "Posición actual: X%d.%02d Y%d.%02d Z%d.%02d mm\r\n",
            x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
-    sendUSBText((uint8_t*)outputBuffer);
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
     sendUSBText("=== FIN CONFIGURACIÓN ===\r\n");
 }
@@ -675,7 +806,13 @@ bool isEndstopPressed(char axis) {
 // Función de homing para todos los ejes
 void performHoming(void) {
     // char msg[80];
-    HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+    // HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+    
+    // Sincronizar planner antes de hacer homing
+    if (plannerEnabled) {
+        planner_synchronize();
+    }
+    
     // Enviar mensaje de inicio de homing
     sendUSBText("Iniciando secuencia de homingg...\r\n");
     
@@ -778,24 +915,24 @@ void performHoming(void) {
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
     while (!isEndstopPressed('Z')) {
         Z_stepOnce();
-        delay_us(STEP_DELAY_US/2);
+        delay_us(STEP_DELAY_US/3);
         //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
     }
     
     // Retroceder un poco del final de carrera Z
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_RESET); // Dirección positiva
-    for (int i = 0; i < 2*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
+    for (int i = 0; i < 1*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
         // if (!isEndstopPressed('Z'));
         Z_stepOnce();
-        delay_us(STEP_DELAY_US/2);
+        delay_us(STEP_DELAY_US/3);
     }
     
     // FASE 2: Movimiento lento de precisión para Z
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa nuevamente
-    for (int i = 0; i < 2*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
+    for (int i = 0; i < 1*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
         // if (!isEndstopPressed('Z'));
         Z_stepOnce();
-        delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
+        delay_us(STEP_DELAY_US/3); // Movimiento lento para precisión
     }
     if (!isEndstopPressed('Z')) {
         sprintf(outputBuffer, "Error: Final de carrera Z no presionado\r\n");
@@ -815,8 +952,14 @@ void performHoming(void) {
     sendUSBText(outputBuffer);CDC_TxQueue_Process();
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
+    // Actualizar posición del planner a home
+    if (plannerEnabled) {
+        float home_pos[3] = {0.0f, 0.0f, 0.0f};
+        planner_set_current_position(home_pos);
+    }
+
     // Rehabilitar interrupciones
-    HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+    // HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 // =============================================================================
@@ -839,7 +982,7 @@ void startProgramStorage(void) {
     
     sendUSBText("Modo almacenamiento activado. Envie comandos G-code.\r\n");
     sendUSBText("Termine con 'FIN' o 'PROGRAM_STOP'\r\n");
-    sendUSBText("ok\r\n");
+    //sendUSBText("ok\r\n");
 }
 
 /**
@@ -912,12 +1055,12 @@ void clearProgram(void) {
     }
     
     sendUSBText("Programa limpiado\r\n");
-    sendUSBText("ok\r\n");
+    //sendUSBText("ok\r\n");
 }
 
 
 /**
-  * @brief  Ejecuta el programa completo almacenado
+  * @brief  Ejecuta el programa completo almacenado usando el planner
   * @retval None
   */
 void runProgram(void) {
@@ -930,67 +1073,12 @@ void runProgram(void) {
     
     isProgramRunning = true;
     currentExecutingLine = 0;
-    // Sobrescribir gcodeProgram con el contenido de prueba
-    strcpy(gcodeProgram[0], "G1 X20 Y20 Z0 F1000");
-    strcpy(gcodeProgram[1], "G0 X20 Y100 Z0");
-    strcpy(gcodeProgram[2], "G0 X100 Y100 Z0");
-    strcpy(gcodeProgram[3], "G1 X100 Y20 Z0 F1000");
-    strcpy(gcodeProgram[4], "G1 X20 Y20 Z0");
-    programLineCount = 5;
-    int suavizadoLineCount = 0;
-    char gCodeRevisado[2*MAX_GCODE_LINES][MAX_LINE_LENGTH];
-    revisar_gcode(gcodeProgram, programLineCount, gCodeRevisado, &suavizadoLineCount);
-
 
     sprintf(outputBuffer, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
-
-    // Ejecutar todas las líneas secuencialmente
-    for (currentExecutingLine = 0; currentExecutingLine < programLineCount; currentExecutingLine++) {
-        if (!isProgramRunning) {
-            sendUSBText((uint8_t*)"Programa detenido por el usuario\r\n");
-            break;
-        }
-
-        sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gCodeRevisado[currentExecutingLine]);
-        sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
-
-        // Crear una copia temporal para evitar recursión
-        char temp_command[MAX_LINE_LENGTH];
-        strncpy(temp_command, gCodeRevisado[currentExecutingLine], MAX_LINE_LENGTH - 1);
-        temp_command[MAX_LINE_LENGTH - 1] = '\0';
-        
-        // Ejecutar el comando directamente usando el parser modular
-        uint8_t status = gc_execute_line(temp_command);
-        
-        // Mostrar resultado
-        if (status == STATUS_OK) {
-            sprintf(outputBuffer, "ok\r\n");
-            sendUSBText(outputBuffer);
-            memset(outputBuffer, 0, sizeof(outputBuffer));
-        } else {
-            sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
-            sendUSBText(outputBuffer);
-            memset(outputBuffer, 0, sizeof(outputBuffer));
-            isProgramRunning = false;
-            break;
-        }
-        
-        // Pequeña pausa entre comandos para estabilidad
-        HAL_Delay(10);
-    }
     
-    isProgramRunning = false;
-    
-    if (currentExecutingLine >= programLineCount) {
-        sprintf(outputBuffer, "Programa completado exitosamente\r\n");
-        sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
-    }
-
-    sendUSBText("ok\r\n");
+    sendUSBText("Programa en ejecucion. Use PROGRAM_PAUSE para pausar.\r\n");
 }
 
 /**
@@ -1024,9 +1112,9 @@ void runNextLine(void) {
     uint8_t status = gc_execute_line(temp_command);
     
     if (status == STATUS_OK) {
-        sprintf(outputBuffer, "ok\r\n");
-        sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        // sprintf(outputBuffer, "ok\r\n");
+        // sendUSBText(outputBuffer);
+        // memset(outputBuffer, 0, sizeof(outputBuffer));
         currentExecutingLine++;
     } else {
         sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
@@ -1078,9 +1166,15 @@ void showHelp(void) {
     sendUSBText("PROGRAM_RUN    - Ejecuta programa completo\r\n");
     sendUSBText("PROGRAM_NEXT   - Ejecuta siguiente linea\r\n");
     sendUSBText("PROGRAM_PAUSE  - Pausa ejecucion\r\n");
+    sendUSBText("PROGRAM_STATUS - Estado del programa actual\r\n");
     sendUSBText("PROGRAM_INFO   - Muestra informacion del programa\r\n");
     sendUSBText("PROGRAM_CLEAR  - Limpia programa almacenado\r\n");
     sendUSBText("QUEUE_STATUS   - Estado de cola de transmision USB\r\n");
+    sendUSBText("PLANNER_STATUS - Estado del planner de movimientos\r\n");
+    sendUSBText("PLANNER_ENABLE - Habilita el planner lookahead\r\n");
+    sendUSBText("PLANNER_DISABLE- Deshabilita el planner lookahead\r\n");
+    sendUSBText("PLANNER_SYNC   - Sincroniza el planner (espera buffer vacio)\r\n");
+    sendUSBText("PLANNER_RESET  - Reinicia el planner\r\n");
     
     sendUSBText("\r\nCOMANDOS G-CODE BASICOS:\r\n");
     sendUSBText("G0 X Y Z       - Movimiento rapido\r\n");
@@ -1141,37 +1235,227 @@ void showQueueStatus(void) {
     sendUSBText("===========================\r\n");
 }
 
+/**
+  * @brief  Muestra el estado del planner lookahead
+  * @retval None
+  */
+void showPlannerStatus(void) {
+    uint8_t buffer_usage;
+    uint32_t blocks_processed;
+    bool is_running;
+    
+    // Obtener estadísticas del planner
+    planner_get_statistics(&buffer_usage, &blocks_processed, &is_running);
+    
+    sprintf(outputBuffer, "\r\n=== ESTADO PLANNER LOOKAHEAD ===\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Estado: %s\r\n", plannerEnabled ? "HABILITADO" : "DESHABILITADO");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Ejecutándose: %s\r\n", is_running ? "SI" : "NO");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Buffer: %d/%d bloques (%d%% uso)\r\n", 
+           planner_get_buffer_count(), PLANNER_BUFFER_SIZE, buffer_usage);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Bloques procesados: %lu\r\n", blocks_processed);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    // Obtener posición actual del planner
+    float planner_pos[3];
+    planner_get_current_position(planner_pos);
+    
+    int x_int = (int)planner_pos[0];
+    int x_dec = (int)((planner_pos[0] - x_int) * 100);
+    int y_int = (int)planner_pos[1];
+    int y_dec = (int)((planner_pos[1] - y_int) * 100);
+    int z_int = (int)planner_pos[2];
+    int z_dec = (int)((planner_pos[2] - z_int) * 100);
+    
+    sprintf(outputBuffer, "Posición planner: X%d.%02d Y%d.%02d Z%d.%02d mm\r\n",
+           x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Configuración:\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "  - Buffer size: %d bloques\r\n", PLANNER_BUFFER_SIZE);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "  - Junction deviation: %.2f mm\r\n", JUNCTION_DEVIATION);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    int acc_int = (int)ACCELERATION;
+    int acc_dec = (int)((ACCELERATION - acc_int) * 10);
+    sprintf(outputBuffer, "  - Aceleración: %d.%d mm/min²\r\n", acc_int, acc_dec);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sendUSBText("================================\r\n");
+}
+
+/**
+  * @brief  Muestra el estado del programa en ejecución
+  * @retval None
+  */
+void showProgramStatus(void) {
+    sprintf(outputBuffer, "\r\n=== ESTADO PROGRAMA G-CODE ===\r\n");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Programa cargado: %s\r\n", isProgramLoaded ? "SI" : "NO");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    sprintf(outputBuffer, "Programa ejecutándose: %s\r\n", isProgramRunning ? "SI" : "NO");
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    if (isProgramLoaded) {
+        sprintf(outputBuffer, "Total de líneas: %d\r\n", programLineCount);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
+        sprintf(outputBuffer, "Línea actual: %d\r\n", currentExecutingLine + 1);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
+        int progress = (programLineCount > 0) ? (currentExecutingLine * 100) / programLineCount : 0;
+        sprintf(outputBuffer, "Progreso: %d%%\r\n", progress);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
+        if (isProgramRunning && currentExecutingLine < programLineCount) {
+            sprintf(outputBuffer, "Próxima línea: %s\r\n", gcodeProgram[currentExecutingLine]);
+            sendUSBText(outputBuffer);
+            memset(outputBuffer, 0, sizeof(outputBuffer));
+        }
+    }
+    
+    sendUSBText("=============================\r\n");
+}
+
+/**
+  * @brief  Procesa el buffer del planner en el loop principal
+  * @retval None
+  */
+void processPlannerBuffer(void) {
+    // Procesar hasta 2 bloques por ciclo para mantener fluidez
+    for (int i = 0; i < 2; i++) {
+        if (!planner_process_next_block()) {
+            break; // No hay más bloques para procesar
+        }
+    }
+}
+
+/**
+  * @brief  Procesa la ejecución del programa de manera no bloqueante
+  * @retval None
+  */
+void processProgram(void) {
+    static uint32_t lastProgramTime = 0;
+    uint32_t currentTime = HAL_GetTick();
+    
+    // Verificar si hay líneas pendientes y si el buffer tiene espacio
+    if (currentExecutingLine >= programLineCount) {
+        // Programa completado
+        if (plannerEnabled) {
+            // Esperar que el planner termine todos los bloques
+            if (planner_get_buffer_count() == 0) {
+                sprintf(outputBuffer, "Programa completado exitosamente\r\n");
+                sendUSBText(outputBuffer);
+                memset(outputBuffer, 0, sizeof(outputBuffer));
+                isProgramRunning = false;
+            }
+        } else {
+            sprintf(outputBuffer, "Programa completado exitosamente\r\n");
+            sendUSBText(outputBuffer);
+            memset(outputBuffer, 0, sizeof(outputBuffer));
+            isProgramRunning = false;
+        }
+        return;
+    }
+    
+    // Control de velocidad - no ejecutar comandos muy rápido
+    if (currentTime - lastProgramTime < 50) {  // Mínimo 50ms entre comandos
+        return;
+    }
+    
+    // Verificar si el buffer del planner tiene espacio (si está habilitado)
+    if (plannerEnabled && planner_get_buffer_count() >= (PLANNER_BUFFER_SIZE - 2)) {
+        // Buffer casi lleno, esperar antes de agregar más comandos
+        return;
+    }
+    
+    // Ejecutar siguiente línea
+    sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
+    sendUSBText(outputBuffer);
+    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
+    // Crear una copia temporal para evitar recursión
+    char temp_command[MAX_LINE_LENGTH];
+    strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
+    temp_command[MAX_LINE_LENGTH - 1] = '\0';
+    
+    // Ejecutar el comando directamente usando el parser modular
+    uint8_t status = gc_execute_line(temp_command);
+    
+    // Verificar resultado
+    if (status == STATUS_OK) {
+        // Comando ejecutado exitosamente, avanzar a la siguiente línea
+        currentExecutingLine++;
+        lastProgramTime = currentTime;
+    } else {
+        // Error en la ejecución
+        sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        isProgramRunning = false;
+    }
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN 5 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    // Tu código de interrupción aquí
-    static uint32_t lastInterruptTime = 0;
-    uint32_t currentTime = HAL_GetTick();
+    // // Tu código de interrupción aquí
+    // static uint32_t lastInterruptTime = 0;
+    // uint32_t currentTime = HAL_GetTick();
     
-    if (currentTime - lastInterruptTime < 50) return; // Debounce
-    lastInterruptTime = currentTime;
+    // if (currentTime - lastInterruptTime < 50) return; // Debounce
+    // lastInterruptTime = currentTime;
     
-    switch(GPIO_Pin) {
-        case GPIO_PIN_12: // X_MIN_PIN
-            if (currentX != 0) endstop_error_handler('X');
-            break;
-        case GPIO_PIN_13: // Y_MIN_PIN  
-            if (currentY != 0) endstop_error_handler('Y');
-            break;
-        case GPIO_PIN_14: // Z_MIN_PIN
-            if (currentZ != 0) endstop_error_handler('Z');
-            break;
-    }
+    // switch(GPIO_Pin) {
+    //     case GPIO_PIN_12: // X_MIN_PIN
+    //         if (currentX != 0) endstop_error_handler('X');
+    //         break;
+    //     case GPIO_PIN_13: // Y_MIN_PIN  
+    //         if (currentY != 0) endstop_error_handler('Y');
+    //         break;
+    //     case GPIO_PIN_14: // Z_MIN_PIN
+    //         if (currentZ != 0) endstop_error_handler('Z');
+    //         break;
+    // }
 }
 
 void endstop_error_handler(char axis)
 {
-    disableSteppers();
-    sprintf(outputBuffer, "ERROR: Final de carrera %c presionado fuera de home!\r\n", axis);
-    CDC_Transmit_Queued((uint8_t*)outputBuffer, strlen(outputBuffer));
-    HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
+    // disableSteppers();
+    // sprintf(outputBuffer, "ERROR: Final de carrera %c presionado fuera de home!\r\n", axis);
+    // CDC_Transmit_Queued((uint8_t*)outputBuffer, strlen(outputBuffer));
+    // HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
 }
 /* USER CODE END 5 */
 

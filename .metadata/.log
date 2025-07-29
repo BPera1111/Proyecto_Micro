@@ -914,3 +914,6 @@ Command-line arguments:  -os win32 -ws win32 -arch x86_64
 
 !ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-07-28 16:11:24.410
 !MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-07-28 22:25:06.639
+!MESSAGE Indexed 'CNC' (32 sources, 128 headers) in 2.81 sec: 10,958 declarations; 45,883 references; 2 unresolved inclusions; 36 syntax errors; 188 unresolved names (0.33%)

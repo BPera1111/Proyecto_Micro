@@ -70,7 +70,7 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
 // ===========================================================================================
 
 // Movimiento de arco con radio específico
-void arc_move_r(float x_end, float y_end, float r, int clockwise);
+void arc_move_r(float x_end, float y_end, float r, bool clockwise);
 
 // ===========================================================================================
 // FUNCIONES AUXILIARES DE VELOCIDAD

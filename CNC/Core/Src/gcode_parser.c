@@ -40,7 +40,7 @@ extern void disableSteppers(void);
 // Funciones de callback con feed rate
 extern void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
 extern void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined);
-extern void moveAxesArcCallback(float x, float y, float radius, bool clockwise);
+extern void moveAxesArcCallback(float x, float y, float r, bool clockwise);
 
 /* Funciones privadas -------------------------------------------------------*/
 

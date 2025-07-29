@@ -332,7 +332,7 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
   * @param  clockwise: Dirección del arco (1 = horario, 0 = antihorario)
   * @retval None
   */
-void arc_move_r(float x_end, float y_end, float r, int clockwise) {
+void arc_move_r(float x_end, float y_end, float r, bool clockwise) {
     float x0 = currentX;
     float y0 = currentY;
     float x1 = x_end * STEPS_PER_MM_X;
@@ -428,168 +428,139 @@ void setCurrentPositionMM(float x_mm, float y_mm, float z_mm) {
 
 //Soporte revisar gcode
 
-typedef struct {
-    double x, y, z, f;
-    int tiene_x, tiene_y, tiene_z, tiene_f;
-} Punto;
+// typedef struct {
+//     double x, y, z, f;
+//     int tiene_x, tiene_y, tiene_z, tiene_f;
+// } Punto;
 
 
-typedef struct {
-    double x, y;
-} Vec2;
+// typedef struct {
+//     double x, y;
+// } Vec2;
 
-Vec2 resta(Vec2 a, Vec2 b) {
-    Vec2 r = { a.x - b.x, a.y - b.y };
-    return r;
-}
+// Vec2 resta(Vec2 a, Vec2 b) {
+//     Vec2 r = { a.x - b.x, a.y - b.y };
+//     return r;
+// }
 
-Vec2 suma(Vec2 a, Vec2 b) {
-    Vec2 s = { a.x + b.x, a.y + b.y };
-    return s;
-}
+// Vec2 suma(Vec2 a, Vec2 b) {
+//     Vec2 s = { a.x + b.x, a.y + b.y };
+//     return s;
+// }
 
-Vec2 escalar(Vec2 v, double f) {
-    Vec2 r = { v.x * f, v.y * f };
-    return r;
-}
+// Vec2 escalar(Vec2 v, double f) {
+//     Vec2 r = { v.x * f, v.y * f };
+//     return r;
+// }
 
-Vec2 normalizar(Vec2 v) {
-    double mag = hypot(v.x, v.y);
-    Vec2 n = { v.x / mag, v.y / mag };
-    return n;
-}
+// Vec2 normalizar(Vec2 v) {
+//     double mag = hypot(v.x, v.y);
+//     Vec2 n = { v.x / mag, v.y / mag };
+//     return n;
+// }
 
-double dot(Vec2 a, Vec2 b) {
-    return a.x * b.x + a.y * b.y;
-}
+// double dot(Vec2 a, Vec2 b) {
+//     return a.x * b.x + a.y * b.y;
+// }
 
-double cross(Vec2 a, Vec2 b) {
-    return a.x * b.y - a.y * b.x;
-}
+// double cross(Vec2 a, Vec2 b) {
+//     return a.x * b.y - a.y * b.x;
+// }
 
-double grados(double rad) {
-    return rad * 180.0 / PI;
-}
+// double grados(double rad) {
+//     return rad * 180.0 / PI;
+// }
 
-Punto parsear_linea_g1(const char *linea, double lastX, double lastY, double lastZ, double lastF) {
-    Punto p = {lastX, lastY, lastZ, lastF, 0, 0, 0, 0};
-    char letra;
-    double valor;
-    const char *ptr = linea;
+// Punto parsear_linea_g1(const char *linea, double lastX, double lastY, double lastZ, double lastF) {
+//     Punto p = {lastX, lastY, lastZ, lastF, 0, 0, 0, 0};
+//     char letra;
+//     double valor;
+//     const char *ptr = linea;
 
-    while (*ptr) {
-        if (sscanf(ptr, " %c%lf", &letra, &valor) == 2) {
-            switch (letra) {
-                case 'X': p.x = valor; p.tiene_x = 1; break;
-                case 'Y': p.y = valor; p.tiene_y = 1; break;
-                case 'Z': p.z = valor; p.tiene_z = 1; break;
-                case 'F': p.f = valor; p.tiene_f = 1; break;
-            }
-        }
+//     while (*ptr) {
+//         if (sscanf(ptr, " %c%lf", &letra, &valor) == 2) {
+//             switch (letra) {
+//                 case 'X': p.x = valor; p.tiene_x = 1; break;
+//                 case 'Y': p.y = valor; p.tiene_y = 1; break;
+//                 case 'Z': p.z = valor; p.tiene_z = 1; break;
+//                 case 'F': p.f = valor; p.tiene_f = 1; break;
+//             }
+//         }
 
-        // Saltar al siguiente bloque
-        while (*ptr && *ptr != ' ') ptr++;
-        while (*ptr == ' ') ptr++;
-    }
+//         // Saltar al siguiente bloque
+//         while (*ptr && *ptr != ' ') ptr++;
+//         while (*ptr == ' ') ptr++;
+//     }
 
-    return p;
-}
-
-
-void suavizarGcode(
-    char gcodeProgram[][MAX_LINE_LENGTH],
-    int numLineasOriginal,
-    char gcodeSuavizado[][MAX_LINE_LENGTH],
-    int *numLineasSuavizado
-) {
-    int nuevaLinea = 0;
-
-    Punto puntos[MAX_GCODE_LINES];
-    int indicesOriginales[MAX_GCODE_LINES];  // Para rastrear en qué línea del G-code estaba cada punto
-
-    double lastX = 0, lastY = 0, lastZ = 0, lastF = 0;
-
-    int totalPuntos = 0;
-
-    // Extraer todos los puntos de G0/G1
-    // printf("Primera línea: '%s'\n", gcodeProgram[0]);
-    for (int i = 0; i < numLineasOriginal; ++i) {
-        if (strncmp(gcodeProgram[i], "G0", 2) == 0 || strncmp(gcodeProgram[i], "G1", 2) == 0) {
-            // printf("Procesando linea: %s\n", gcodeProgram[i]);
-            Punto p = parsear_linea_g1(gcodeProgram[i], lastX, lastY, lastZ, lastF);
-            if (p.tiene_x) lastX = p.x;
-            if (p.tiene_y) lastY = p.y;
-            if (p.tiene_z) lastZ = p.z;
-            if (p.tiene_f) lastF = p.f;
-            p.x = lastX;
-            p.y = lastY;
-            p.z = lastZ;
-            p.f = lastF;
-
-            puntos[totalPuntos] = p;
-            indicesOriginales[totalPuntos] = i;
-            totalPuntos++;
-        }
-    }
-
-    // Procesar puntos con suavizado
-    for (int i = 0; i < totalPuntos; ++i) {
-        // printf("Punto %d: X=%.3f Y=%.3f\n", i, puntos[i].x, puntos[i].y);
-        Punto p0 = puntos[i > 0 ? i - 1 : i];
-        Punto p1 = puntos[i];
-        Punto p2 = puntos[i < totalPuntos - 1 ? i + 1 : i];
-
-        Vec2 v1 = resta((Vec2){p1.x, p1.y}, (Vec2){p0.x, p0.y});
-        Vec2 v2 = resta((Vec2){p2.x, p2.y}, (Vec2){p1.x, p1.y});
-
-        if (i == 0 || i == totalPuntos - 1) {
-            // printf("Linea de borde, no suavizar\n");
-            // Copiar línea tal cual
-            strcpy(gcodeSuavizado[nuevaLinea++], gcodeProgram[indicesOriginales[i]]);
-        } else {
-            // printf("Procesando suavizado entre puntos %d y %d\n", i - 1, i + 1);
-            Vec2 v1n = normalizar(v1);
-            Vec2 v2n = normalizar(v2);
-            double angulo = acos(fmax(-1.0, fmin(1.0, dot(v1n, v2n))));
-            if (grados(angulo) > ANGULO_MIN) {
-                // Copiar línea original
-                strcpy(gcodeSuavizado[nuevaLinea++], gcodeProgram[indicesOriginales[i]]);
-                continue;
-            }
-
-            double offset = fmin(fmin(hypot(v1.x, v1.y), hypot(v2.x, v2.y)), RADIO_SUAVIZADO);
-            Vec2 p1a = resta((Vec2){p1.x, p1.y}, escalar(v1n, offset));
-            Vec2 p1b = suma((Vec2){p1.x, p1.y}, escalar(v2n, offset));
-            int cw = cross(v1n, v2n) < 0;
-
-            
-            char linea[MAX_LINE_LENGTH];
-
-            sprintf(linea, "G1 X%.3f Y%.3f", p1a.x, p1a.y);
-            if (p1.tiene_z) sprintf(linea + strlen(linea), " Z%.3f", p1.z);
-            if (p1.tiene_f) sprintf(linea + strlen(linea), " F%.3f", p1.f);
-            strcpy(gcodeSuavizado[nuevaLinea++], linea);
-
-            sprintf(linea, "%s X%.3f Y%.3f R%.3f", cw ? "G2" : "G3", p1b.x, p1b.y, offset);
-            strcpy(gcodeSuavizado[nuevaLinea++], linea);
-
-        }
-    }
-
-    // Copiar al buffer de salida - esto ya está hecho arriba, no es necesario hacer nada más
-    // for (int i = 0; i < nuevaLinea; ++i) {
-    //     strcpy(gcodeSuavizado[i], gcodeSuavizado[i]);  // Esta línea era redundante
-    // }
-    printf("Lineas generadas tras el suavizado: %d\n", nuevaLinea);
-    *numLineasSuavizado = nuevaLinea;
-}
+//     return p;
+// }
 
 
-void revisar_gcode(const char gcodeProgram[][MAX_LINE_LENGTH], int numLineas, char gcodeSuavizado[][MAX_LINE_LENGTH], int *numLineasSuavizado) {
-    //char gcodeProgram[MAX_GCODE_LINES][MAX_LINE_LENGTH];
-    //char gcodeSuavizado[2 * MAX_GCODE_LINES][MAX_LINE_LENGTH]; // hasta el doble por si se agregan muchas líneas
-    //int numLineas = 0, numLineasSuavizado = 0;
+// void suavizarLineaGcode(
+//     const char *lineaAnterior,
+//     const char *lineaActual,
+//     char gcodeSuavizado[][MAX_LINE_LENGTH],
+//     int *nuevaLinea
+// ) {
+//     // Parsear ambas líneas
+//     static double lastX = 0, lastY = 0, lastZ = 0, lastF = 0;
+//     Punto p0 = parsear_linea_g1(lineaAnterior, lastX, lastY, lastZ, lastF);
+//     if (p0.tiene_x) lastX = p0.x;
+//     if (p0.tiene_y) lastY = p0.y;
+//     if (p0.tiene_z) lastZ = p0.z;
+//     if (p0.tiene_f) lastF = p0.f;
 
-    suavizarGcode(gcodeProgram, numLineas, gcodeSuavizado, numLineasSuavizado);
-    // return gcodeSuavizado;
-}
+//     p0.x = lastX; p0.y = lastY; p0.z = lastZ; p0.f = lastF;
+
+//     Punto p1 = parsear_linea_g1(lineaActual, lastX, lastY, lastZ, lastF);
+//     if (p1.tiene_x) lastX = p1.x;
+//     if (p1.tiene_y) lastY = p1.y;
+//     if (p1.tiene_z) lastZ = p1.z;
+//     if (p1.tiene_f) lastF = p1.f;
+
+//     p1.x = lastX; p1.y = lastY; p1.z = lastZ; p1.f = lastF;
+
+//     // Vector entre p0 y p1
+//     Vec2 v = resta((Vec2){p1.x, p1.y}, (Vec2){p0.x, p0.y});
+
+//     // Si el movimiento es corto, o en línea recta, no suavizar
+//     double distancia = hypot(v.x, v.y);
+//     if (distancia < RADIO_SUAVIZADO) {
+//         strcpy(gcodeSuavizado[(*nuevaLinea)++], lineaActual);
+//         return;
+//     }
+
+//     // Si querés suavizar:
+//     Vec2 vNorm = normalizar(v);
+//     Vec2 p0a = suma((Vec2){p0.x, p0.y}, escalar(vNorm, RADIO_SUAVIZADO));
+//     Vec2 p1b = resta((Vec2){p1.x, p1.y}, escalar(vNorm, RADIO_SUAVIZADO));
+
+//     char linea[MAX_LINE_LENGTH];
+
+//     // Línea hasta punto de entrada del arco
+//     sprintf(linea, "G1 X%.3f Y%.3f", p0a.x, p0a.y);
+//     if (p0.tiene_z) sprintf(linea + strlen(linea), " Z%.3f", p0.z);
+//     if (p0.tiene_f) sprintf(linea + strlen(linea), " F%.3f", p0.f);
+//     strcpy(gcodeSuavizado[(*nuevaLinea)++], linea);
+
+//     // Arco de entrada
+//     sprintf(linea, "G2 X%.3f Y%.3f R%.3f", p1b.x, p1b.y, RADIO_SUAVIZADO);
+//     strcpy(gcodeSuavizado[(*nuevaLinea)++], linea);
+// }
+
+// void revisar_gcode(const char gcodeProgram[][MAX_LINE_LENGTH], int numLineas, char gcodeSuavizado[][MAX_LINE_LENGTH], int *numLineasSuavizado) {
+//     int nuevaLinea = 0;
+
+//     for (int i = 1; i < numLineas; ++i) {
+//         // Procesar sólo pares consecutivos G0/G1
+//         if ((strncmp(gcodeProgram[i - 1], "G0", 2) == 0 || strncmp(gcodeProgram[i - 1], "G1", 2) == 0) &&
+//             (strncmp(gcodeProgram[i], "G0", 2) == 0 || strncmp(gcodeProgram[i], "G1", 2) == 0)) {
+//             suavizarLineaGcode(gcodeProgram[i - 1], gcodeProgram[i], gcodeSuavizado, &nuevaLinea);
+//         } else {
+//             // Copiar línea tal cual si no es G0/G1 o es la primera
+//             strcpy(gcodeSuavizado[nuevaLinea++], gcodeProgram[i]);
+//         }
+//     }
+
+//     *numLineasSuavizado = nuevaLinea;
+// }
