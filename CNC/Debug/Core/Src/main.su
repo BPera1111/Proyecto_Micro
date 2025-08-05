@@ -24,7 +24,7 @@
 ../Core/Src/main.c:1312:6:showProgramStatus	24	static
 ../Core/Src/main.c:355:6:processGcode	160	static
 ../Core/Src/main.c:1353:6:processPlannerBuffer	8	static
-../Core/Src/main.c:1366:6:processProgram	104	static
+../Core/Src/main.c:1366:6:processProgram	96	static
 ../Core/Src/main.c:473:6:loop	16	static
 ../Core/Src/main.c:1431:6:HAL_GPIO_EXTI_Callback	0	static
 ../Core/Src/main.c:1453:6:endstop_error_handler	0	static

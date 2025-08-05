@@ -24,7 +24,7 @@
 ../Core/Src/main.c:1312:6:showProgramStatus	5
 ../Core/Src/main.c:355:6:processGcode	24
 ../Core/Src/main.c:1353:6:processPlannerBuffer	2
-../Core/Src/main.c:1366:6:processProgram	8
+../Core/Src/main.c:1366:6:processProgram	7
 ../Core/Src/main.c:473:6:loop	7
 ../Core/Src/main.c:1431:6:HAL_GPIO_EXTI_Callback	1
 ../Core/Src/main.c:1453:6:endstop_error_handler	1

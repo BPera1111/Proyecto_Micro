@@ -209,7 +209,7 @@ int main(void)
     loop();
     
     // Pausa optimizada para reducir carga del procesador y terminal
-    HAL_Delay(50);  // 50ms = 20Hz, reduce carga significativamente
+    // HAL_Delay(50);  // 50ms = 20Hz, reduce carga significativamente
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1388,9 +1388,9 @@ void processProgram(void) {
     }
     
     // Control de velocidad - no ejecutar comandos muy rápido
-    if (currentTime - lastProgramTime < 50) {  // Mínimo 50ms entre comandos
-        return;
-    }
+    // if (currentTime - lastProgramTime < 50) {  // Mínimo 50ms entre comandos
+    //     return;
+    // }
     
     // Verificar si el buffer del planner tiene espacio (si está habilitado)
     if (plannerEnabled && planner_get_buffer_count() >= (PLANNER_BUFFER_SIZE - 2)) {
