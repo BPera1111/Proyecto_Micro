@@ -1,7 +1,7 @@
 ../Core/Src/gcode_parser.c:51:6:gc_init	1
 ../Core/Src/gcode_parser.c:69:6:gc_clear_block	1
 ../Core/Src/gcode_parser.c:101:6:read_float	11
-../Core/Src/gcode_parser.c:147:9:gc_parse_line	49
-../Core/Src/gcode_parser.c:326:9:gc_execute_block	29
-../Core/Src/gcode_parser.c:437:9:gc_execute_line	4
-../Core/Src/gcode_parser.c:467:6:report_status_message	15
+../Core/Src/gcode_parser.c:147:9:gc_parse_line	36
+../Core/Src/gcode_parser.c:294:9:gc_execute_block	23
+../Core/Src/gcode_parser.c:390:9:gc_execute_line	4
+../Core/Src/gcode_parser.c:420:6:report_status_message	15

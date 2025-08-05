@@ -33,7 +33,7 @@ extern int32_t currentX, currentY, currentZ;
 
 /* Funciones externas -------------------------------------------------------*/
 extern void performHoming(void);
-extern void moveAxes(float x, float y, float z);
+//extern void moveAxes(float x, float y, float z);
 extern void enableSteppers(void);
 extern void disableSteppers(void);
 
@@ -52,13 +52,13 @@ void gc_init(void) {
     // Inicializar estado modal por defecto
     memset(&gc_state_modal, 0, sizeof(gc_modal_t));
     gc_state_modal.motion = MOTION_MODE_SEEK;       // G0 por defecto
-    gc_state_modal.coord_select = 0;                // G54 por defecto 
-    gc_state_modal.plane_select = 0;                // G17 (XY plane) por defecto
-    gc_state_modal.units = 0;                       // G21 (mm) por defecto
-    gc_state_modal.distance = 0;                    // G90 (absoluto) por defecto
-    gc_state_modal.feed_rate = 0;                   // G94 por defecto
+    // gc_state_modal.coord_select = 0;                // G54 por defecto 
+    // gc_state_modal.plane_select = 0;                // G17 (XY plane) por defecto
+    // gc_state_modal.units = 0;                       // G21 (mm) por defecto
+    // gc_state_modal.distance = 0;                    // G90 (absoluto) por defecto
+    // gc_state_modal.feed_rate = 0;                   // G94 por defecto
     gc_state_modal.spindle = 0;                     // M5 (spindle off) por defecto
-    gc_state_modal.coolant = 0;                     // M9 (coolant off) por defecto
+    // gc_state_modal.coolant = 0;                     // M9 (coolant off) por defecto
     gc_state_modal.program_flow = 0;                // Normal execution
 }
 
@@ -77,9 +77,9 @@ void gc_clear_block(void) {
     gc_block.values.z = NAN;
     gc_block.values.f = NAN;
     gc_block.values.s = NAN;
-    gc_block.values.n = -1;
+    //gc_block.values.n = -1;
     gc_block.values.p = 0;
-    gc_block.values.l = 0;
+    // gc_block.values.l = 0;
     gc_block.values.r = NAN;
     
     // Flags de definición
@@ -196,33 +196,13 @@ uint8_t gc_parse_line(char *line) {
                         word_bit = MODAL_GROUP_G0;
                         gc_block.non_modal_command = 4;  // G4 - Dwell
                         break;
-                    case 17: case 18: case 19:
-                        word_bit = MODAL_GROUP_G2;
-                        gc_block.modal.plane_select = int_value - 17;
-                        break;
-                    case 20: case 21:
-                        word_bit = MODAL_GROUP_G6;
-                        gc_block.modal.units = 21 - int_value;  // G21=0(mm), G20=1(inch)
-                        break;
                     case 28:
                         word_bit = MODAL_GROUP_G0;
                         gc_block.non_modal_command = 28;  // G28 - Home
                         break;
-                    case 90: case 91:
-                        word_bit = MODAL_GROUP_G3;
-                        gc_block.modal.distance = int_value - 90;  // G90=0(abs), G91=1(inc)
-                        break;
                     case 92:
                         word_bit = MODAL_GROUP_G0;
                         gc_block.non_modal_command = 92;  // G92 - Set position
-                        break;
-                    case 93: case 94:
-                        word_bit = MODAL_GROUP_G5;
-                        gc_block.modal.feed_rate = 94 - int_value;
-                        break;
-                    case 54: case 55: case 56: case 57: case 58: case 59:
-                        word_bit = MODAL_GROUP_G12;
-                        gc_block.modal.coord_select = int_value - 54;
                         break;
                     default:
                         return STATUS_GCODE_UNSUPPORTED_COMMAND;
@@ -240,17 +220,13 @@ uint8_t gc_parse_line(char *line) {
                 if (int_value > 99) return STATUS_GCODE_UNSUPPORTED_COMMAND;
                 
                 switch (int_value) {
-                    case 0: case 1: case 2: case 30:
+                    case 0: case 2:
                         word_bit = MODAL_GROUP_M4;
                         gc_block.modal.program_flow = int_value;
                         break;
-                    case 3: case 4: case 5:
+                    case 3: case 5:
                         word_bit = MODAL_GROUP_M7;
                         gc_block.modal.spindle = int_value;
-                        break;
-                    case 7: case 8: case 9:
-                        word_bit = MODAL_GROUP_M8;
-                        gc_block.modal.coolant = int_value;
                         break;
                     case 17:  // M17 - Enable steppers
                         word_bit = MODAL_GROUP_G0;  // Comando no modal
@@ -289,21 +265,13 @@ uint8_t gc_parse_line(char *line) {
                 gc_block.values.f_defined = true;
                 if (value < 0.0) return STATUS_NEGATIVE_VALUE;
                 break;
-            case 'S':
-                gc_block.values.s = value;
-                gc_block.values.s_defined = true;
-                if (value < 0.0) return STATUS_NEGATIVE_VALUE;
-                break;
-            case 'N':
-                gc_block.values.n = int_value;
-                if (value < 0.0) return STATUS_NEGATIVE_VALUE;
-                break;
             case 'P':
                 gc_block.values.p = int_value;
                 if (value < 0.0) return STATUS_NEGATIVE_VALUE;
                 break;
-            case 'L':
-                gc_block.values.l = int_value;
+            case 'S':
+                gc_block.values.s = value;
+                gc_block.values.s_defined = true;
                 if (value < 0.0) return STATUS_NEGATIVE_VALUE;
                 break;
             case 'R':
@@ -403,26 +371,11 @@ uint8_t gc_execute_block(void) {
         case 3:  // M3 - Spindle CW
             CDC_Transmit_FS((uint8_t*)"Spindle activado (CW)\r\n", 23);
             break;
-        case 4:  // M4 - Spindle CCW  
-            CDC_Transmit_FS((uint8_t*)"Spindle activado (CCW)\r\n", 24);
-            break;
         case 5:  // M5 - Spindle off
             CDC_Transmit_FS((uint8_t*)"Spindle desactivado\r\n", 21);
             break;
     }
-    
-    switch (gc_block.modal.coolant) {
-        case 7:  // M7 - Mist coolant
-            CDC_Transmit_FS((uint8_t*)"Refrigerante niebla activado\r\n", 30);
-            break;
-        case 8:  // M8 - Flood coolant
-            CDC_Transmit_FS((uint8_t*)"Refrigerante inundación activado\r\n", 34);
-            break;
-        case 9:  // M9 - Coolant off
-            CDC_Transmit_FS((uint8_t*)"Refrigerante desactivado\r\n", 26);
-            break;
-    }
-    
+        
     // Actualizar estado modal persistente
     memcpy(&gc_state_modal, &gc_block.modal, sizeof(gc_modal_t));
     

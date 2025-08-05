@@ -2,6 +2,6 @@
 ../Core/Src/gcode_parser.c:69:6:gc_clear_block	8	static
 ../Core/Src/gcode_parser.c:101:6:read_float	24	static
 ../Core/Src/gcode_parser.c:147:9:gc_parse_line	32	static
-../Core/Src/gcode_parser.c:326:9:gc_execute_block	144	static
-../Core/Src/gcode_parser.c:437:9:gc_execute_line	8	static
-../Core/Src/gcode_parser.c:467:6:report_status_message	40	static
+../Core/Src/gcode_parser.c:294:9:gc_execute_block	144	static
+../Core/Src/gcode_parser.c:390:9:gc_execute_line	8	static
+../Core/Src/gcode_parser.c:420:6:report_status_message	40	static
