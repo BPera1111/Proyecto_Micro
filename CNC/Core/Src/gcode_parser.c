@@ -45,7 +45,7 @@ extern void moveAxesArcCallback(float x, float y, float r, bool clockwise);
 /* Funciones privadas -------------------------------------------------------*/
 
 /**
-  * @brief  Inicializa el parser G-code con valores por defecto
+ * @brief  Inicializa el parser G-code con valores por defecto
   * @retval None
   */
 void gc_init(void) {
