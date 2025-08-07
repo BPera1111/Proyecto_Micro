@@ -77,7 +77,7 @@
 // ===========================================================================================
 
 // Buffer para mensajes de salida
-#define OUTPUT_BUFFER_SIZE 200
+#define OUTPUT_BUFFER_SIZE 950
 
 // Buffer para comandos USB CDC
 #define USB_BUFFER_SIZE 100
