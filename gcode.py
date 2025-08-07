@@ -152,7 +152,7 @@ def main():
     try:
         # Cargar y ejecutar programa
         if cargar_programa(ser, GCODE_PROGRAMA):
-            ejecutar_programa(ser)
+            # ejecutar_programa(ser)
             pass
         
         print("\n✅ Completado")
