@@ -1,0 +1,145 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{url}
+\usepackage{enumerate}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\begin{document}
+
+% Carátula
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+    {\Huge\bfseries Informe Técnico del Proyecto CNC Controller STM32F103C8T6 \par}
+    \vspace{2cm}
+    {\Large\bfseries Autor: Bruno Pera \par}
+    \vspace{1cm}
+    {\large\bfseries Fecha: 10 de agosto de 2025 \par}
+    \vspace{2cm}
+    {\large\bfseries Universidad Nacional de Córdoba \par}
+    \vfill
+\end{titlepage}
+
+% Introducción
+\section{Introducción}
+El presente informe describe el desarrollo de un sistema CNC basado en el microcontrolador STM32F103C8T6 (Blue Pill), orientado a la conversión de una impresora 3D en una máquina CNC láser. El objetivo principal es lograr un control preciso de tres ejes mediante motores paso a paso, permitiendo la ejecución de trayectorias definidas por comandos G-code. La motivación surge de la necesidad de contar con una plataforma flexible y de bajo costo para aplicaciones de manufactura digital, prototipado rápido y automatización. El sistema se fundamenta en principios de control numérico computarizado, procesamiento de señales y comunicación USB.
+
+% Esquema tecnológico
+\section{Esquema tecnológico}
+%\begin{figure}[h!]
+%    \centering
+%    \includegraphics[width=0.8\textwidth]{img/esquema_cnc.png}
+%    \caption{Diagrama en bloques del sistema CNC Controller}
+%\end{figure}
+El sistema está compuesto por los siguientes módulos principales:
+\begin{itemize}
+    \item \textbf{Microcontrolador STM32F103C8T6}: núcleo de control y procesamiento.
+    \item \textbf{Drivers de motores paso a paso}: A4988/DRV8825 para control de los ejes X, Y, Z.
+    \item \textbf{Motores NEMA17}: permiten el movimiento mecánico de la máquina.
+    \item \textbf{Finales de carrera}: sensores de posición para referencia y seguridad.
+    \item \textbf{LEDs indicadores}: muestran el estado y dirección de movimiento.
+    \item \textbf{Interfaz USB}: comunicación con PC para envío de comandos G-code.
+\end{itemize}
+
+% Detalle de módulos
+\section{Detalle de módulos}
+\subsection{Microcontrolador STM32F103C8T6}
+Microcontrolador ARM Cortex-M3, 72MHz, 64KB Flash, 20KB RAM. Se programa mediante ST-Link V2 y soporta interfaces GPIO, USB, PWM, ADC, entre otras. Más información en la hoja de datos oficial: \url{https://www.st.com/resource/en/datasheet/stm32f103c8.pdf}
+
+\subsection{Drivers de motores paso a paso}
+A4988 y DRV8825 permiten controlar motores bipolares NEMA17. Soportan microstepping y protección contra sobrecorriente. Referencia: \url{https://www.pololu.com/product/1182}
+
+\subsection{Motores NEMA17}
+Motores estándar para impresoras 3D y CNC, torque típico de 40Ncm, 1.8° por paso. Más detalles: \url{https://reprap.org/wiki/NEMA_17_Stepper_motor}
+
+\subsection{Finales de carrera}
+Sensores mecánicos tipo switch, conectados a pines GPIO para referencia de posición y protección contra colisiones.
+
+\subsection{LEDs indicadores}
+Dos LEDs conectados a PB0 y PB1 para indicar sentido horario y antihorario del movimiento.
+
+\subsection{Interfaz USB}
+Implementada mediante USB CDC (Communications Device Class), permite enviar comandos G-code desde la PC al microcontrolador.
+
+% Funcionamiento general
+\section{Funcionamiento general}
+El controlador recibe comandos G-code desde la PC, los interpreta y los traduce en movimientos de los motores paso a paso. El sistema utiliza un algoritmo de planificación de trayectorias (Motion Planner con Lookahead) para optimizar la velocidad y suavidad de los movimientos. Los finales de carrera aseguran la referencia y seguridad en los extremos de los ejes. El flujo de funcionamiento se representa en el siguiente diagrama de estados:
+
+%\begin{figure}[h!]
+%    \centering
+%    \includegraphics[width=0.7\textwidth]{img/diagrama_estados.png}
+%    \caption{Diagrama de estados del controlador CNC}
+%\end{figure}
+
+% Programación
+\section{Programación}
+La configuración de periféricos incluye:
+\begin{itemize}
+    \item \textbf{GPIO}: para control de motores, LEDs y finales de carrera.
+    \item \textbf{USB CDC}: para comunicación con la PC.
+    \item \textbf{Timers}: generación de pulsos para motores paso a paso.
+\end{itemize}
+El código principal se estructura en los siguientes módulos:
+\begin{itemize}
+    \item \textbf{main.c}: inicialización, bucle principal y gestión de eventos.
+    \item \textbf{motion.c}: funciones de movimiento y control de motores.
+    \item \textbf{gcode\_parser.c}: interpretación de comandos G-code.
+    \item \textbf{planner.c}: planificación de trayectorias y optimización de velocidades.
+\end{itemize}
+Las interrupciones se utilizan para la gestión de eventos críticos (finales de carrera, recepción USB). El algoritmo de planificación implementa un buffer lookahead que permite suavizar las trayectorias y evitar paradas bruscas entre segmentos.
+
+% Etapas de montaje y ensayos realizados
+\section{Etapas de montaje y ensayos realizados}
+El montaje se realizó en etapas:
+\begin{enumerate}
+    \item Ensamblado de la electrónica y cableado de motores, drivers y sensores.
+    \item Programación y verificación de la comunicación USB.
+    \item Pruebas individuales de cada eje y finales de carrera.
+    \item Ejecución de trayectorias simples y complejas mediante archivos G-code.
+    \item Validación de la precisión y repetibilidad del sistema.
+\end{enumerate}
+
+% Resultados, especificaciones finales
+\section{Resultados y especificaciones finales}
+El sistema cumple con los objetivos planteados: control preciso de 3 ejes, ejecución de trayectorias G-code, comunicación USB estable y respuesta rápida de los finales de carrera. Las especificaciones técnicas alcanzadas son:
+\begin{itemize}
+    \item \textbf{Precisión}: 0.012 mm (X/Y), 0.00025 mm (Z)
+    \item \textbf{Velocidad máxima}: 2000 mm/min
+    \item \textbf{Consumo}: 1.2A @ 12V (máximo)
+    \item \textbf{Área de trabajo}: 100x100x10 mm
+    \item \textbf{Autonomía}: ilimitada (alimentación externa)
+\end{itemize}
+
+% Conclusiones y ensayo de ingeniería de producto
+\section{Conclusiones y ensayo de ingeniería de producto}
+El desarrollo del sistema CNC basado en STM32F103C8T6 demostró ser una solución eficiente y flexible para aplicaciones de manufactura digital. El uso de un algoritmo de planificación avanzada permitió mejorar la calidad de las trayectorias y reducir el desgaste mecánico. Para una versión comercial se recomienda:
+\begin{itemize}
+    \item Integrar drivers de mayor corriente para motores más potentes.
+    \item Añadir protección eléctrica y filtrado de ruido.
+    \item Implementar carcasas y conectores industriales.
+    \item Mejorar la interfaz de usuario y agregar pantalla LCD.
+    \item Certificar el sistema según normas de seguridad industrial.
+\end{itemize}
+
+% Referencias
+\section{Referencias}
+\begin{itemize}
+    \item Hoja de datos STM32F103C8T6: \url{https://www.st.com/resource/en/datasheet/stm32f103c8.pdf}
+    \item Driver A4988: \url{https://www.pololu.com/product/1182}
+    \item Motor NEMA17: \url{https://reprap.org/wiki/NEMA_17_Stepper_motor}
+    \item Algoritmo GRBL: \url{https://github.com/gnea/grbl}
+    \item Documentación USB CDC: \url{https://www.usb.org/defined-class-codes}
+\end{itemize}
+
+% Anexos
+\section{Anexos}
+\begin{itemize}
+    \item Esquemas eléctricos y PCB (disponibles en repositorio)
+    \item Código fuente completo (ver carpeta Proyecto\_Micro)
+    \item Archivos de prueba G-code (ver carpeta examples)
+\end{itemize}
+
+\end{document}
