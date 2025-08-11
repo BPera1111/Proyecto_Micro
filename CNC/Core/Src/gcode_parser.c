@@ -110,13 +110,7 @@ void gc_init(void) {
     // Inicializar estado modal por defecto
     memset(&gc_state_modal, 0, sizeof(gc_modal_t));
     gc_state_modal.motion = MOTION_MODE_SEEK;       // G0 por defecto
-    // gc_state_modal.coord_select = 0;                // G54 por defecto 
-    // gc_state_modal.plane_select = 0;                // G17 (XY plane) por defecto
-    // gc_state_modal.units = 0;                       // G21 (mm) por defecto
-    // gc_state_modal.distance = 0;                    // G90 (absoluto) por defecto
-    // gc_state_modal.feed_rate = 0;                   // G94 por defecto
     gc_state_modal.spindle = 0;                     // M5 (spindle off) por defecto
-    // gc_state_modal.coolant = 0;                     // M9 (coolant off) por defecto
     gc_state_modal.program_flow = 0;                // Normal execution
 }
 
@@ -135,9 +129,7 @@ void gc_clear_block(void) {
     gc_block.values.z = NAN;
     gc_block.values.f = NAN;
     gc_block.values.s = NAN;
-    //gc_block.values.n = -1;
     gc_block.values.p = 0;
-    // gc_block.values.l = 0;
     gc_block.values.r = NAN;
     
     // Flags de definición

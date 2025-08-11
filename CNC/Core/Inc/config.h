@@ -50,9 +50,6 @@
 #define SEGMENTS 50
 #define PI 3.14159265358979323846
 
-// Configuración de tolerancia para rectas consecutivas
-#define RADIO_SUAVIZADO 2.0
-#define ANGULO_MIN 175.0
 
 // ===========================================================================================
 // CONFIGURACIÓN DE PINES STM32F103C8T6 (Blue Pill)
@@ -102,32 +99,6 @@
 // Buffer para almacenar programa G-code
 #define MAX_GCODE_LINES 100    // Máximo número de líneas de G-code a almacenar
 #define MAX_LINE_LENGTH 80     // Longitud máxima de cada línea de G-code
-
-// ===========================================================================================
-// CONFIGURACIÓN DEL PLANNER LOOKAHEAD
-// ===========================================================================================
-
-// Buffer del planner para lookahead
-#define PLANNER_BUFFER_SIZE 8           // Buffer de 8 líneas lookahead
-#define MAX_VELOCITY_CHANGE 500.0f      // Cambio máximo de velocidad (mm/min)
-#define JUNCTION_DEVIATION 0.1f         // Desviación permitida en juntas (mm)
-#define ACCELERATION 1000.0f            // Aceleración por defecto (mm/min²)
-#define MIN_SEGMENT_TIME_US 20000       // Tiempo mínimo de segmento (20ms)
-
-// ===========================================================================================
-// CÓDIGOS DE ALARMA Y ERROR
-// ===========================================================================================
-
-// Códigos de alarma específicos de la máquina
-#define ALARM_HARD_LIMIT        1   // Hard limit activo
-#define ALARM_SOFT_LIMIT        2   // Soft limit activo
-#define ALARM_ABORT_CYCLE       3   // Reset durante ciclo
-#define ALARM_PROBE_FAIL_INITIAL 4  // Probe fail al inicio
-#define ALARM_PROBE_FAIL_CONTACT 5  // Probe fail en contacto
-#define ALARM_HOMING_FAIL_RESET  6  // Homing fail reset
-#define ALARM_HOMING_FAIL_DOOR   7  // Homing fail puerta
-#define ALARM_HOMING_FAIL_PULLOFF 8 // Homing fail pulloff
-#define ALARM_HOMING_FAIL_APPROACH 9 // Homing fail approach
 
 // ===========================================================================================
 // CONFIGURACIÓN DE COMUNICACIÓN USB CDC

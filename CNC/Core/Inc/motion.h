@@ -93,7 +93,4 @@ void getCurrentPositionMM(float *x, float *y, float *z);
 void setCurrentPosition(int32_t x_steps, int32_t y_steps, int32_t z_steps);
 void setCurrentPositionMM(float x_mm, float y_mm, float z_mm);
 
-// Revisar G-code 
-void revisar_gcode(const char gcodeProgram[][MAX_LINE_LENGTH], int numLineas, char gcodeSuavizado[][MAX_LINE_LENGTH], int *numLineasSuavizado);
-
 #endif // MOTION_H

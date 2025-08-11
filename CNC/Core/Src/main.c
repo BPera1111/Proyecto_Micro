@@ -85,7 +85,7 @@ bool isStoringProgram = false;     // Flag para indicar si estamos en modo almac
 bool isProgramLoaded = false;      // Flag para indicar si hay un programa cargado
 bool isProgramRunning = false;     // Flag para indicar si el programa se está ejecutando
 
-const uint16_t STEP_DELAY_VALUE = STEP_DELAY_US;  // Usar valor de config.h
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -184,11 +184,8 @@ int main(void)
     // Procesar cola de transmisión USB CDC
     CDC_TxQueue_Process();
     
-    // Equivalente al loop() de Arduino
     loop();
     
-    // Pausa optimizada para reducir carga del procesador y terminal
-    // HAL_Delay(50);  // 50ms = 20Hz, reduce carga significativamente
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -530,57 +527,7 @@ void setup(void) {
     
 }
 
-// Nota: El callback USB CDC está implementado en usbd_cdc_if.c
 
-// =============================================================================
-// FUNCIONES DE CALLBACK PARA EL PARSER MODULAR
-// =============================================================================
-
-// Callback para realizar homing
-void performHomingCallback(void) {
-    performHoming();
-}
-
-// Callback para establecer posición
-void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
-    if (x_defined) {
-        currentX = x * STEPS_PER_MM_X;
-    }
-    if (y_defined) {
-        currentY = y * STEPS_PER_MM_Y;
-    }
-    if (z_defined) {
-        currentZ = z * STEPS_PER_MM_Z;
-    }
-    
-    // Convertir posiciones a enteros para evitar problemas con printf float
-    float pos_x = currentX/(float)STEPS_PER_MM_X;
-    float pos_y = currentY/(float)STEPS_PER_MM_Y;
-    float pos_z = currentZ/(float)STEPS_PER_MM_Z;
-    
-    int x_int = (int)pos_x;
-    int x_dec = (int)((pos_x - x_int) * 100);
-    int y_int = (int)pos_y;
-    int y_dec = (int)((pos_y - y_int) * 100);
-    int z_int = (int)pos_z;
-    int z_dec = (int)((pos_z - z_int) * 100);
-    
-    sprintf(outputBuffer, "Posición establecida: X%d.%02d Y%d.%02d Z%d.%02d\r\n",
-           x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
-    sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
-}
-
-// Callback para movimiento de ejes
-void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
-    // Usar movimiento directo (modo compatibilidad)
-    float target_x = x_defined ? x : NAN;
-    float target_y = y_defined ? y : NAN;
-    float target_z = z_defined ? z : NAN;
-    
-    moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
-    
-}
 
 // Callback específico para movimiento rápido G0
 void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
@@ -610,13 +557,6 @@ void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_de
     
     moveAxesWithFeedRate(target_x, target_y, target_z, currentFeedRate, false);
 }
-// La función CDC_Receive_FS maneja la recepción de datos
-
-// Función de compatibilidad UART (no se usa en este proyecto)
-// El proyecto usa USB CDC para comunicación
-
-// Función auxiliar para movimiento genérico (no utilizada actualmente)
-// Se mantiene para compatibilidad futura
 
 // Función para mostrar la configuración actual del sistema
 void showConfiguration(void) {
@@ -715,8 +655,6 @@ void performHoming(void) {
     while (!isEndstopPressed('X')) {
         X_stepOnce();
         delay_us(STEP_DELAY_US);
-        //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
-        // HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
     }
     
     // FASE 1: Retroceder 2mm del final de carrera X
@@ -767,7 +705,6 @@ void performHoming(void) {
     while (!isEndstopPressed('Y')) {
         Y_stepOnce();
         delay_us(STEP_DELAY_US);
-        //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
     }
     
     // FASE 1: Retroceder 4mm del final de carrera Y
@@ -819,7 +756,6 @@ void performHoming(void) {
     while (!isEndstopPressed('Z')) {
         Z_stepOnce();
         delay_us(STEP_DELAY_US/3);
-        //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
     }
     
     // FASE 1: Retroceder 2mm del final de carrera Z
@@ -1056,9 +992,6 @@ void runNextLine(void) {
     uint8_t status = gc_execute_line(temp_command);
     
     if (status == STATUS_OK) {
-        // sprintf(outputBuffer, "ok\r\n");
-        // sendUSBText(outputBuffer);
-        // memset(outputBuffer, 0, sizeof(outputBuffer));
         currentExecutingLine++;
     } else {
         sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
