@@ -443,6 +443,17 @@ void processGcode(const char* command) {
         } else if (strncmp(command, "M505", 4) == 0) {
             // M505 - Mostrar límites de la máquina
             report_machine_limits();
+        } else if (strncmp(command, "M119", 4) == 0) {
+            // M119 - Reportar estado de fines de carrera
+            sprintf(outputBuffer, "Estado fines de carrera:\r\n");
+            sendUSBText(outputBuffer);
+            sprintf(outputBuffer, "X_MIN: %s\r\n", isEndstopPressed('X') ? "PRESSED" : "open");
+            sendUSBText(outputBuffer);
+            sprintf(outputBuffer, "Y_MIN: %s\r\n", isEndstopPressed('Y') ? "PRESSED" : "open");
+            sendUSBText(outputBuffer);
+            sprintf(outputBuffer, "Z_MIN: %s\r\n", isEndstopPressed('Z') ? "PRESSED" : "open");
+            sendUSBText(outputBuffer);
+            memset(outputBuffer, 0, sizeof(outputBuffer));
         }
     }
     
@@ -704,15 +715,13 @@ bool isEndstopPressed(char axis) {
 
 // Función de homing para todos los ejes
 void performHoming(void) {
-    // char msg[80];
-    // HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
     
     // Enviar mensaje de inicio de homing
-    sendUSBText("Iniciando secuencia de homingg...\r\n");
+    sendUSBText("Iniciando secuencia de homing...\r\n");
     
     // FASE 1: Movimiento rápido hacia los finales de carrera
     sprintf(outputBuffer, "Fase 1: Buscando finales de carrera...\r\n");
-    // sendUSBText((uint8_t*)msg);
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
@@ -720,7 +729,6 @@ void performHoming(void) {
     sprintf(outputBuffer, "Homing eje X...\r\n");
     sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
-    CDC_TxQueue_Process();
 
     // Mover hacia el final de carrera X (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
@@ -731,39 +739,47 @@ void performHoming(void) {
         // HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
     }
     
-    // Retroceder un poco del final de carrera X
+    // FASE 1: Retroceder 2mm del final de carrera X
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_SET); // Dirección positiva
-    for (int i = 0; i < 2*STEPS_PER_MM_X; i++) { // Retroceder 50 pasos
-        //if (!isEndstopPressed('X')); // Salir cuando se libere el endstop
+    for (int i = 0; i < 4*STEPS_PER_MM_X; i++) { // Exactamente 2mm
         X_stepOnce();
         delay_us(STEP_DELAY_US);
     }
     
-    // FASE 2: Movimiento lento de precisión para X
-    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa nuevamente
-    for (int i = 0; i < 2*STEPS_PER_MM_X; i++) { // Retroceder 50 pasos
-        //if (!isEndstopPressed('X')); // Salir cuando se libere el endstop
-        X_stepOnce();
-        delay_us(STEP_DELAY_US * 3);
-    }
-    if (!isEndstopPressed('X')) {
-        sprintf(outputBuffer, "Error: Final de carrera X no presionado\r\n");
-        sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    // Verificar que se liberó el switch después de alejarse 2mm
+    if (isEndstopPressed('X')) {
+        sprintf(outputBuffer, "Error: Fin de carrera X no se liberó después de alejarse 2mm\r\n");
+        sendUSBText(outputBuffer);
         memset(outputBuffer, 0, sizeof(outputBuffer));
-        // Activar interrupción o LED de error
-        return; // Salir si no se presionó el endstop
+        return;
     }
     
+
+    
+    // FASE 2: Regresar 4mm hacia el final de carrera X
+    HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
+    for (int i = 0; i < 4*STEPS_PER_MM_X; i++) { // Exactamente 4mm de regreso
+        X_stepOnce();
+        delay_us(STEP_DELAY_US *3); // Movimiento lento para precisión
+    }
+    // Pausa para estabilización
+    HAL_Delay(100);
+    // Verificar que el final de carrera esté presionado después de regresar 4mm
+    if (!isEndstopPressed('X')) {
+        sprintf(outputBuffer, "Error: Fin de carrera X no está presionado después de regresar 4mm\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        return;
+    }
     currentX = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje X en posición home\r\n");
-    sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
-    CDC_TxQueue_Process();
 
     // Homing del eje Y
     sprintf(outputBuffer, "Homing eje Y...\r\n");
-    sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     // Mover hacia el final de carrera Y (dirección negativa)
@@ -774,32 +790,42 @@ void performHoming(void) {
         //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
     }
     
-    // Retroceder un poco del final de carrera Y
+    // FASE 1: Retroceder 4mm del final de carrera Y
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_SET); // Dirección positiva
-    for (int i = 0; i < 2*STEPS_PER_MM_Y; i++) { // Retroceder 50 pasos
-        //if (!isEndstopPressed('Y'));
+    for (int i = 0; i < 4*STEPS_PER_MM_Y; i++) { // Exactamente 4mm
         Y_stepOnce();
         delay_us(STEP_DELAY_US);
     }
     
-    // FASE 2: Movimiento lento de precisión para Y
-    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa nuevamente
-    for (int i = 0; i < 2*STEPS_PER_MM_Y; i++) { // Retroceder 50 pasos
-        //if (!isEndstopPressed('Y'));
-        Y_stepOnce();
-        delay_us(STEP_DELAY_US * 3); // Movimiento lento para precisión
-    }
-    if (!isEndstopPressed('Y')) {
-        sprintf(outputBuffer, "Error: Final de carrera Y no presionado\r\n");
-        sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    // Verificar que se liberó el switch después de alejarse 4mm
+    if (isEndstopPressed('Y')) {
+        sprintf(outputBuffer, "Error: Fin de carrera Y no se liberó después de alejarse 4mm\r\n");
+        sendUSBText(outputBuffer);
         memset(outputBuffer, 0, sizeof(outputBuffer));
-        // Activar interrupción o LED de error
-        return; // Salir si no se presionó el endstop
+        return;
+    }
+    
+
+    
+    // FASE 2: Regresar 4mm hacia el final de carrera Y
+    HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
+    for (int i = 0; i < 4*STEPS_PER_MM_Y; i++) { // Exactamente 4mm de regreso
+        Y_stepOnce();
+        delay_us(STEP_DELAY_US*3); // Movimiento lento para precisión
+    }
+    // Pausa para estabilización
+    HAL_Delay(100);
+    // Verificar que el final de carrera esté presionado después de regresar 4mm
+    if (!isEndstopPressed('Y')) {
+        sprintf(outputBuffer, "Error: Fin de carrera Y no está presionado después de regresar 4mm\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        return;
     }
     
     currentY = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje Y en posición home\r\n");
-    sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     CDC_TxQueue_Process();
@@ -816,27 +842,37 @@ void performHoming(void) {
         //delay_us(STEP_DELAY_US / 2); // Movimiento más rápido para búsqueda inicial
     }
     
-    // Retroceder un poco del final de carrera Z
+    // FASE 1: Retroceder 2mm del final de carrera Z
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_RESET); // Dirección positiva
-    for (int i = 0; i < 1*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
-        // if (!isEndstopPressed('Z'));
+    for (int i = 0; i < 2*STEPS_PER_MM_Z; i++) { // Exactamente 2mm
         Z_stepOnce();
         delay_us(STEP_DELAY_US/3);
     }
     
-    // FASE 2: Movimiento lento de precisión para Z
-    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa nuevamente
-    for (int i = 0; i < 1*STEPS_PER_MM_Z; i++) { // Retroceder 50 pasos
-        // if (!isEndstopPressed('Z'));
-        Z_stepOnce();
-        delay_us(STEP_DELAY_US/3); // Movimiento lento para precisión
-    }
-    if (!isEndstopPressed('Z')) {
-        sprintf(outputBuffer, "Error: Final de carrera Z no presionado\r\n");
-        sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    // Verificar que se liberó el switch después de alejarse 2mm
+    if (isEndstopPressed('Z')) {
+        sprintf(outputBuffer, "Error: Fin de carrera Z no se liberó después de alejarse 2mm\r\n");
+        sendUSBText(outputBuffer);
         memset(outputBuffer, 0, sizeof(outputBuffer));
-        // Activar interrupción o LED de error
-        return; // Salir si no se presionó el endstop
+        return;
+    }
+    
+    
+    
+    // FASE 2: Regresar 2mm hacia el final de carrera Z
+    HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
+    for (int i = 0; i < 2*STEPS_PER_MM_Z; i++) { // Exactamente 2mm de regreso
+        Z_stepOnce();
+        delay_us(STEP_DELAY_US); // Movimiento lento para precisión
+    }
+    // Pausa para estabilización
+    HAL_Delay(100);
+    // Verificar que el final de carrera esté presionado después de regresar 2mm
+    if (!isEndstopPressed('Z')) {
+        sprintf(outputBuffer, "Error: Fin de carrera Z no está presionado después de regresar 2mm\r\n");
+        sendUSBText(outputBuffer);
+        memset(outputBuffer, 0, sizeof(outputBuffer));
+        return;
     }
     
     currentZ = 0; // Establecer posición home
@@ -846,13 +882,13 @@ void performHoming(void) {
 
     // Mensaje final
     sprintf(outputBuffer, "Homing completado. Todos los ejes en posición home.\r\n");
-    sendUSBText(outputBuffer);CDC_TxQueue_Process();
+    sendUSBText(outputBuffer);
     memset(outputBuffer, 0, sizeof(outputBuffer));
 
     CDC_TxQueue_Process();
 
     // Rehabilitar interrupciones
-    // HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+    HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 // ========================================================================
@@ -1215,7 +1251,7 @@ void showProgramStatus(void) {
   * @retval None
   */
 void processProgram(void) {
-    static uint32_t lastProgramTime = 0;
+    static uint32_t lastProgramTime __attribute__((unused)) = 0;
     uint32_t currentTime = HAL_GetTick();
     
     // Verificar si hay líneas pendientes y si el buffer tiene espacio
@@ -1263,31 +1299,31 @@ void processProgram(void) {
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     // // Tu código de interrupción aquí
-    // static uint32_t lastInterruptTime = 0;
-    // uint32_t currentTime = HAL_GetTick();
+    static uint32_t lastInterruptTime = 0;
+    uint32_t currentTime = HAL_GetTick();
     
-    // if (currentTime - lastInterruptTime < 50) return; // Debounce
-    // lastInterruptTime = currentTime;
+    if (currentTime - lastInterruptTime < 50) return; // Debounce
+    lastInterruptTime = currentTime;
     
-    // switch(GPIO_Pin) {
-    //     case GPIO_PIN_12: // X_MIN_PIN
-    //         if (currentX != 0) endstop_error_handler('X');
-    //         break;
-    //     case GPIO_PIN_13: // Y_MIN_PIN  
-    //         if (currentY != 0) endstop_error_handler('Y');
-    //         break;
-    //     case GPIO_PIN_14: // Z_MIN_PIN
-    //         if (currentZ != 0) endstop_error_handler('Z');
-    //         break;
-    // }
+    switch(GPIO_Pin) {
+        case GPIO_PIN_12: // X_MIN_PIN
+            if (currentX != 0) endstop_error_handler('X');
+            break;
+        case GPIO_PIN_13: // Y_MIN_PIN  
+            if (currentY != 0) endstop_error_handler('Y');
+            break;
+        case GPIO_PIN_14: // Z_MIN_PIN
+            if (currentZ != 0) endstop_error_handler('Z');
+            break;
+    }
 }
 
 void endstop_error_handler(char axis)
 {
-    // disableSteppers();
-    // sprintf(outputBuffer, "ERROR: Final de carrera %c presionado fuera de home!\r\n", axis);
-    // CDC_Transmit_Queued((uint8_t*)outputBuffer, strlen(outputBuffer));
-    // HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
+    disableSteppers();
+    sprintf(outputBuffer, "ERROR: Final de carrera %c presionado fuera de home!\r\n", axis);
+    CDC_Transmit_Queued((uint8_t*)outputBuffer, strlen(outputBuffer));
+    HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
 }
 /* USER CODE END 5 */
 
