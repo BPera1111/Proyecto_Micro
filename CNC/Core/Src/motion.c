@@ -240,32 +240,32 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     uint32_t step_delay = calculateStepDelay(effective_feedrate, total_distance);
     
     // Mostrar información del movimiento con validación de valores
-    float display_x = !isnan(x) ? x : (currentX / (float)STEPS_PER_MM_X);
-    float display_y = !isnan(y) ? y : (currentY / (float)STEPS_PER_MM_Y);
-    float display_z = !isnan(z) ? z : (currentZ / (float)STEPS_PER_MM_Z);
+    // float display_x = !isnan(x) ? x : (currentX / (float)STEPS_PER_MM_X);
+    // float display_y = !isnan(y) ? y : (currentY / (float)STEPS_PER_MM_Y);
+    // float display_z = !isnan(z) ? z : (currentZ / (float)STEPS_PER_MM_Z);
     
     // Convertir floats a enteros para evitar problemas de printf con floats
-    int x_int = (int)display_x;
-    int x_dec = (int)((display_x - x_int) * 100);
-    int y_int = (int)display_y;
-    int y_dec = (int)((display_y - y_int) * 100);
-    int z_int = (int)display_z;
-    int z_dec = (int)((display_z - z_int) * 100);
-    int f_int = (int)effective_feedrate;
-    int f_dec = (int)((effective_feedrate - f_int) * 10);
-    int d_int = (int)total_distance;
-    int d_dec = (int)((total_distance - d_int) * 100);
+    // int x_int = (int)display_x;
+    // int x_dec = (int)((display_x - x_int) * 100);
+    // int y_int = (int)display_y;
+    // int y_dec = (int)((display_y - y_int) * 100);
+    // int z_int = (int)display_z;
+    // int z_dec = (int)((display_z - z_int) * 100);
+    // int f_int = (int)effective_feedrate;
+    // int f_dec = (int)((effective_feedrate - f_int) * 10);
+    // int d_int = (int)total_distance;
+    // int d_dec = (int)((total_distance - d_int) * 100);
 
-    snprintf(outputBuffer, OUTPUT_BUFFER_SIZE, "%s: X=%d.%02d Y=%d.%02d Z=%d.%02d F=%d.%d D=%d.%02dmm T=%lduS\r\n", 
-           isRapid ? "G0 RAPID" : "G1 LINEAR",
-           x_int, abs(x_dec),
-           y_int, abs(y_dec), 
-           z_int, abs(z_dec),
-           f_int, abs(f_dec), 
-           d_int, abs(d_dec), 
-           (unsigned long)step_delay);
-    sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, OUTPUT_BUFFER_SIZE);
+    // snprintf(outputBuffer, OUTPUT_BUFFER_SIZE, "%s: X=%d.%02d Y=%d.%02d Z=%d.%02d F=%d.%d D=%d.%02dmm T=%lduS\r\n", 
+    //        isRapid ? "G0 RAPID" : "G1 LINEAR",
+    //        x_int, abs(x_dec),
+    //        y_int, abs(y_dec), 
+    //        z_int, abs(z_dec),
+    //        f_int, abs(f_dec), 
+    //        d_int, abs(d_dec), 
+    //        (unsigned long)step_delay);
+    // sendUSBText(outputBuffer);
+    // memset(outputBuffer, 0, OUTPUT_BUFFER_SIZE);
     
     // Algoritmo de interpolación lineal 3D (Bresenham modificado)
     int32_t maxSteps = deltaX;

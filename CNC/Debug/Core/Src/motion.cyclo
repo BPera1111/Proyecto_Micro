@@ -8,7 +8,7 @@
 ../Core/Src/motion.c:152:6:Z_move	2
 ../Core/Src/motion.c:170:6:enableSteppers	1
 ../Core/Src/motion.c:181:6:disableSteppers	1
-../Core/Src/motion.c:199:6:moveAxesWithFeedRate	23
+../Core/Src/motion.c:199:6:moveAxesWithFeedRate	20
 ../Core/Src/motion.c:335:6:arc_move_r	7
 ../Core/Src/motion.c:401:6:getCurrentPositionMM	4
 ../Core/Src/motion.c:412:6:setCurrentPosition	1
