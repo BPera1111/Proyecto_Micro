@@ -47,23 +47,6 @@
 void sendUSBText(const char* message) {
     uint16_t len = strlen(message);
     CDC_Transmit_Queued((uint8_t*)message, len);
-    
-    // switch (USB_TRANSMIT_METHOD) {
-    //     case USB_METHOD_DIRECT:
-    //         sendUSBText((uint8_t*)message);
-    //         break;
-            
-    //     case USB_METHOD_RETRY:
-    //         sendUSBText_WithRetry((uint8_t*)message, len, 3, 10);  // 3 reintentos, 10ms
-    //         break;
-            
-    //     case USB_METHOD_QUEUED:
-    //         if (!CDC_Transmit_Queued((uint8_t*)message, len)) {
-    //             // Si la cola está llena, usar método directo como fallback
-    //             sendUSBText((uint8_t*)message);
-    //         }
-    //         break;
-    // }
 }
 
 /* USER CODE END PD */
@@ -133,13 +116,10 @@ void showHelp(void);
 void showQueueStatus(void);  // Nueva función de diagnóstico
 void showProgramStatus(void); // Nueva función para estado del programa
 
-// Funciones para integración con planner
-void showPlannerStatus(void);
-void processPlannerBuffer(void);
+
 void processProgram(void);  // Nueva función para ejecutar programa progresivamente
 
-// Variables de control del planner
-bool plannerEnabled = true;  // Control para habilitar/deshabilitar planner
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -591,7 +571,7 @@ void setPositionCallback(float x, float y, float z, bool x_defined, bool y_defin
     memset(outputBuffer, 0, sizeof(outputBuffer));
 }
 
-// Callback para movimiento de ejes - Integrado con planner
+// Callback para movimiento de ejes
 void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
     // Usar movimiento directo (modo compatibilidad)
     float target_x = x_defined ? x : NAN;
@@ -602,7 +582,7 @@ void moveAxesCallback(float x, float y, float z, bool x_defined, bool y_defined,
     
 }
 
-// Callback específico para movimiento rápido G0 - Integrado con planner
+// Callback específico para movimiento rápido G0
 void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined) {
     // Usar movimiento directo (modo compatibilidad)
     float target_x = x_defined ? x : NAN;
@@ -617,7 +597,7 @@ void moveAxesArcCallback(float x, float y, float r, bool clockwise) {
     arc_move_r(x, y, r, clockwise);
 }
 
-// Callback específico para movimiento lineal G1 con feed rate - Integrado con planner
+// Callback específico para movimiento lineal G1 con feed rate 
 void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined) {
     // Actualizar feed rate actual si se especifica
     if (f_defined && feedRate > 0) {
@@ -1023,7 +1003,7 @@ void clearProgram(void) {
 
 
 /**
-  * @brief  Ejecuta el programa completo almacenado usando el planner
+  * @brief  Ejecuta el programa completo almacenado
   * @retval None
   */
 void runProgram(void) {
@@ -1134,11 +1114,6 @@ void showHelp(void) {
     sendUSBText("PROGRAM_INFO   - Muestra informacion del programa\r\n");
     sendUSBText("PROGRAM_CLEAR  - Limpia programa almacenado\r\n");
     sendUSBText("QUEUE_STATUS   - Estado de cola de transmision USB\r\n");
-    sendUSBText("PLANNER_STATUS - Estado del planner de movimientos\r\n");
-    sendUSBText("PLANNER_ENABLE - Habilita el planner lookahead\r\n");
-    sendUSBText("PLANNER_DISABLE- Deshabilita el planner lookahead\r\n");
-    sendUSBText("PLANNER_SYNC   - Sincroniza el planner (espera buffer vacio)\r\n");
-    sendUSBText("PLANNER_RESET  - Reinicia el planner\r\n");
     
     sendUSBText("\r\nCOMANDOS G-CODE BASICOS:\r\n");
     sendUSBText("G0 X Y Z       - Movimiento rapido\r\n");
