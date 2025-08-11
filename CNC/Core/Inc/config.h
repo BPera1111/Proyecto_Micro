@@ -26,6 +26,23 @@
 #define STEP_DELAY_US 800      // Delay entre pulsos de paso en microsegundos
 
 // ===========================================================================================
+// CONFIGURACIÓN DE LÍMITES DE LA MÁQUINA
+// ===========================================================================================
+
+// Límites de trabajo de la máquina (en mm)
+#define MAX_TRAVEL_X 160.0f    // Recorrido máximo eje X (mm)
+#define MAX_TRAVEL_Y 160.0f    // Recorrido máximo eje Y (mm)  
+#define MAX_TRAVEL_Z 160.0f    // Recorrido máximo eje Z (mm)
+
+// Límites mínimos (origen)
+#define MIN_TRAVEL_X 0.0f      // Límite mínimo eje X (mm)
+#define MIN_TRAVEL_Y 0.0f      // Límite mínimo eje Y (mm)
+#define MIN_TRAVEL_Z 0.0f      // Límite mínimo eje Z (mm)
+
+// Margen de seguridad para los límites
+#define SAFETY_MARGIN 2.0f     // Margen de seguridad en mm
+
+// ===========================================================================================
 // CONFIGURACIÓN DE ARCOS Y CÍRCULOS
 // ===========================================================================================
 

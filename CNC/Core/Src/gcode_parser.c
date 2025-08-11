@@ -13,6 +13,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "gcode_parser.h"
+#include "config.h"
 #include "usbd_cdc_if.h"
 #include <string.h>
 #include <stdio.h>
@@ -45,7 +46,64 @@ extern void moveAxesArcCallback(float x, float y, float r, bool clockwise);
 /* Funciones privadas -------------------------------------------------------*/
 
 /**
- * @brief  Inicializa el parser G-code con valores por defecto
+  * @brief  Verifica si las coordenadas objetivo están dentro de los límites de la máquina
+  * @param  target_x: Coordenada X objetivo (en mm)
+  * @param  target_y: Coordenada Y objetivo (en mm)  
+  * @param  target_z: Coordenada Z objetivo (en mm)
+  * @param  x_defined: True si X está definido en el comando
+  * @param  y_defined: True si Y está definido en el comando
+  * @param  z_defined: True si Z está definido en el comando
+  * @retval STATUS_OK si está dentro de límites, STATUS_SOFT_LIMIT_ERROR si está fuera
+  */
+uint8_t check_soft_limits(float target_x, float target_y, float target_z, bool x_defined, bool y_defined, bool z_defined) {
+    char msg[100];
+    
+    // Verificar límites para eje X
+    if (x_defined) {
+        if (target_x < MIN_TRAVEL_X || target_x > MAX_TRAVEL_X) {
+            sprintf(msg, "Error: X=%.2f fuera de límites [%.1f, %.1f]\r\n", 
+                   target_x, MIN_TRAVEL_X, MAX_TRAVEL_X);
+            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            return STATUS_SOFT_LIMIT_ERROR;
+        }
+    }
+    
+    // Verificar límites para eje Y
+    if (y_defined) {
+        if (target_y < MIN_TRAVEL_Y || target_y > MAX_TRAVEL_Y) {
+            sprintf(msg, "Error: Y=%.2f fuera de límites [%.1f, %.1f]\r\n", 
+                   target_y, MIN_TRAVEL_Y, MAX_TRAVEL_Y);
+            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            return STATUS_SOFT_LIMIT_ERROR;
+        }
+    }
+    
+    // Verificar límites para eje Z
+    if (z_defined) {
+        if (target_z < MIN_TRAVEL_Z || target_z > MAX_TRAVEL_Z) {
+            sprintf(msg, "Error: Z=%.2f fuera de límites [%.1f, %.1f]\r\n", 
+                   target_z, MIN_TRAVEL_Z, MAX_TRAVEL_Z);
+            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            return STATUS_SOFT_LIMIT_ERROR;
+        }
+    }
+    
+    return STATUS_OK;  // Todas las coordenadas están dentro de límites
+}
+
+/**
+  * @brief  Reporta los límites de la máquina por USB
+  * @retval None
+  */
+void report_machine_limits(void) {
+    char msg[200];
+    sprintf(msg, "Límites de la máquina:\r\nX: [%.1f, %.1f] mm\r\nY: [%.1f, %.1f] mm\r\nZ: [%.1f, %.1f] mm\r\n",
+           MIN_TRAVEL_X, MAX_TRAVEL_X, MIN_TRAVEL_Y, MAX_TRAVEL_Y, MIN_TRAVEL_Z, MAX_TRAVEL_Z);
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+}
+
+/**
+  * @brief  Inicializa el parser G-code con valores por defecto
   * @retval None
   */
 void gc_init(void) {
@@ -337,6 +395,21 @@ uint8_t gc_execute_block(void) {
             break;
     }
     
+    // Verificar límites de software antes de ejecutar comandos de movimiento
+    if (gc_block.modal.motion == MOTION_MODE_SEEK || 
+        gc_block.modal.motion == MOTION_MODE_LINEAR ||
+        gc_block.modal.motion == MOTION_MODE_CW_ARC ||
+        gc_block.modal.motion == MOTION_MODE_CCW_ARC) {
+        
+        if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.z_defined) {
+            uint8_t limit_status = check_soft_limits(gc_block.values.x, gc_block.values.y, gc_block.values.z,
+                                                     gc_block.values.x_defined, gc_block.values.y_defined, gc_block.values.z_defined);
+            if (limit_status != STATUS_OK) {
+                return limit_status;  // Retornar error de límites
+            }
+        }
+    }
+    
     // Ejecutar comandos de movimiento
     switch (gc_block.modal.motion) {
         case MOTION_MODE_SEEK:    // G0 - Movimiento rápido
@@ -433,6 +506,9 @@ void report_status_message(uint8_t status_code) {
             break;
         case STATUS_NEGATIVE_VALUE:
             CDC_Transmit_FS((uint8_t*)"error:4 (Negative value)\r\n", 27);
+            break;
+        case STATUS_SOFT_LIMIT_ERROR:
+            CDC_Transmit_FS((uint8_t*)"error:5 (Soft limit exceeded)\r\n", 32);
             break;
         case STATUS_GCODE_UNSUPPORTED_COMMAND:
             CDC_Transmit_FS((uint8_t*)"error:20 (Unsupported command)\r\n", 33);

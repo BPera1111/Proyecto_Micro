@@ -400,7 +400,11 @@ void processGcode(const char* command) {
         if (addLineToProgram(command)) {
             sendUSBText("ok\r\n");
         } else {
-            sendUSBText("error: buffer lleno\r\n");
+            // El error ya fue enviado por addLineToProgram
+            // Detener el modo de almacenamiento
+            isStoringProgram = false;
+            isProgramLoaded = false;
+            programLineCount = 0;
         }
         return;
     }
@@ -436,6 +440,9 @@ void processGcode(const char* command) {
         } else if (strncmp(command, "M503", 4) == 0) {
             // M503 - Mostrar configuración
             showConfiguration();
+        } else if (strncmp(command, "M505", 4) == 0) {
+            // M505 - Mostrar límites de la máquina
+            report_machine_limits();
         }
     }
     
@@ -894,10 +901,11 @@ void stopProgramStorage(void) {
 /**
   * @brief  Agrega una línea al programa almacenado
   * @param  line: Línea de G-code a agregar
-  * @retval true si se agregó exitosamente, false si el buffer está lleno
+  * @retval true si se agregó exitosamente, false si hay error
   */
 bool addLineToProgram(const char* line) {
     if (programLineCount >= MAX_GCODE_LINES) {
+        sendUSBText("error: buffer de programa lleno\r\n");
         return false; // Buffer lleno
     }
     
@@ -909,16 +917,49 @@ bool addLineToProgram(const char* line) {
         return true; // Línea vacía, no la almacenamos pero no es error
     }
     
-    strncpy(gcodeProgram[programLineCount], start, MAX_LINE_LENGTH - 1);
-    gcodeProgram[programLineCount][MAX_LINE_LENGTH - 1] = '\0';
+    // Crear copia para verificación de límites
+    char line_copy[MAX_LINE_LENGTH];
+    strncpy(line_copy, start, MAX_LINE_LENGTH - 1);
+    line_copy[MAX_LINE_LENGTH - 1] = '\0';
     
     // Eliminar \r\n del final si existen
-    int len = strlen(gcodeProgram[programLineCount]);
-    while (len > 0 && (gcodeProgram[programLineCount][len-1] == '\r' || 
-                       gcodeProgram[programLineCount][len-1] == '\n')) {
-        gcodeProgram[programLineCount][len-1] = '\0';
+    int len = strlen(line_copy);
+    while (len > 0 && (line_copy[len-1] == '\r' || line_copy[len-1] == '\n')) {
+        line_copy[len-1] = '\0';
         len--;
     }
+    
+    // Verificar límites antes de agregar al programa
+    // Solo verificamos comandos de movimiento (G0, G1, G2, G3)
+    if (strncmp(line_copy, "G0", 2) == 0 || strncmp(line_copy, "G1", 2) == 0 || 
+        strncmp(line_copy, "G2", 2) == 0 || strncmp(line_copy, "G3", 2) == 0) {
+        
+        // Parsear la línea para extraer coordenadas
+        uint8_t parse_status = gc_parse_line(line_copy);
+        if (parse_status != STATUS_OK) {
+            char error_msg[100];
+            sprintf(error_msg, "error: línea %d - ", programLineCount + 1);
+            sendUSBText(error_msg);
+            report_status_message(parse_status);
+            return false;
+        }
+        
+        // Verificar límites de software
+        uint8_t limit_status = check_soft_limits(gc_block.values.x, gc_block.values.y, gc_block.values.z,
+                                                 gc_block.values.x_defined, gc_block.values.y_defined, gc_block.values.z_defined);
+        if (limit_status != STATUS_OK) {
+            char error_msg[150];
+            sprintf(error_msg, "error: línea %d viola límites - ", programLineCount + 1);
+            sendUSBText(error_msg);
+            report_status_message(limit_status);
+            sendUSBText("Carga de programa cancelada\r\n");
+            return false;
+        }
+    }
+    
+    // Si llegamos aquí, la línea es válida, agregarla al programa
+    strncpy(gcodeProgram[programLineCount], line_copy, MAX_LINE_LENGTH - 1);
+    gcodeProgram[programLineCount][MAX_LINE_LENGTH - 1] = '\0';
     
     programLineCount++;
     return true;
@@ -1072,6 +1113,7 @@ void showHelp(void) {
     sendUSBText("M18 / M84      - Deshabilitar motores\r\n");
     sendUSBText("M114           - Reportar posicion actual\r\n");
     sendUSBText("M503           - Mostrar configuracion\r\n");
+    sendUSBText("M505           - Mostrar limites de la maquina\r\n");
     
     sendUSBText("\r\nEJEMPLO DE USO:\r\n");
     sendUSBText("1. PROGRAM_START\r\n");

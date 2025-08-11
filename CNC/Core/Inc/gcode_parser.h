@@ -29,6 +29,7 @@ extern "C" {
 #define STATUS_BAD_NUMBER_FORMAT 2
 #define STATUS_INVALID_STATEMENT 3
 #define STATUS_NEGATIVE_VALUE 4
+#define STATUS_SOFT_LIMIT_ERROR 5          // Error de límite de software
 // #define STATUS_SETTING_DISABLED 5
 // #define STATUS_SETTING_STEP_PULSE_MIN 6
 // #define STATUS_SETTING_READ_FAIL 7
@@ -138,6 +139,8 @@ uint8_t gc_execute_block(void);
 void gc_clear_block(void);
 bool read_float(char *line, uint8_t *char_counter, float *float_ptr);
 void report_status_message(uint8_t status_code);
+uint8_t check_soft_limits(float target_x, float target_y, float target_z, bool x_defined, bool y_defined, bool z_defined);
+void report_machine_limits(void);
 
 /* Callbacks para implementar en el archivo principal ---------------------*/
 // Estas funciones deben ser implementadas en main.c para el control del hardware

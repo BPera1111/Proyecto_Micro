@@ -1,5 +1,6 @@
 Core/Src/gcode_parser.o: ../Core/Src/gcode_parser.c \
- ../Core/Inc/gcode_parser.h ../USB_DEVICE/App/usbd_cdc_if.h \
+ ../Core/Inc/gcode_parser.h ../Core/Inc/config.h \
+ ../USB_DEVICE/App/usbd_cdc_if.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc/usbd_cdc.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_def.h \
@@ -34,6 +35,7 @@ Core/Src/gcode_parser.o: ../Core/Src/gcode_parser.c \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h
 ../Core/Inc/gcode_parser.h:
+../Core/Inc/config.h:
 ../USB_DEVICE/App/usbd_cdc_if.h:
 ../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc/usbd_cdc.h:
 ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h:
