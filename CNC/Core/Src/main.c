@@ -726,7 +726,7 @@ void performHoming(void) {
     
     // FASE 2: Regresar 4mm hacia el final de carrera Y
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
-    for (int i = 0; i < 4*STEPS_PER_MM_Y; i++) { // Exactamente 4mm de regreso
+    for (int i = 0; i < 4.02*STEPS_PER_MM_Y; i++) { // Exactamente 4mm de regreso
         Y_stepOnce();
         delay_us(STEP_DELAY_US*3); // Movimiento lento para precisión
     }
@@ -1215,13 +1215,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     
     switch(GPIO_Pin) {
         case GPIO_PIN_12: // X_MIN_PIN
-            if (currentX != 0) endstop_error_handler('X');
+            if (currentX > 0.5) endstop_error_handler('X');
             break;
-        case GPIO_PIN_13: // Y_MIN_PIN  
-            if (currentY != 0) endstop_error_handler('Y');
+        case GPIO_PIN_13: // Y_MIN_PIN
+            if (currentY > 0.5) endstop_error_handler('Y');
             break;
         case GPIO_PIN_14: // Z_MIN_PIN
-            if (currentZ != 0) endstop_error_handler('Z');
+            if (currentZ > 0.1) endstop_error_handler('Z');
             break;
     }
 }

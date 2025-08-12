@@ -56,14 +56,12 @@ uint32_t calculateStepDelay(float feedRate, float distance_mm) {
     if (feedRate <= 0) return STEP_DELAY_US; // Usar delay por defecto si es inválido
     
     // Calcular pasos por segundo para el eje dominante
-    // feedRate está en mm/min, convertir a mm/s
-    float feedRate_mm_per_sec = feedRate / 60.0;
     
     // Usar el eje con mayor resolución (Z) para el cálculo más conservador
     float steps_per_mm = STEPS_PER_MM_Z; // El más alto: 3930 steps/mm
     
     // Calcular pasos por segundo
-    float steps_per_sec = feedRate_mm_per_sec * steps_per_mm;
+    float steps_per_sec = feedRate * steps_per_mm;
     
     // Calcular delay en microsegundos entre pasos
     if (steps_per_sec <= 0) return STEP_DELAY_US;
