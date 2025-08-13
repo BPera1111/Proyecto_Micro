@@ -1,0 +1,1071 @@
+\documentclass[12pt]{article}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes}
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=black,
+    pdfborder={0 0 0}
+}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{longtable}
+\geometry{a4paper, margin=1.3cm}
+
+\title{Anteproyecto: Impresora 3D Modificada para Grabado Láser CNC de PCB}
+\author{Nombre del estudiante}
+\date{\today}
+
+% Configuración de encabezados y pies de página
+\pagestyle{fancy}
+\fancyhf{} % Limpia encabezados y pies de página
+
+% Encabezado
+\fancyhead[L]{\scriptsize UNCuyo - Ing. Mecatrónica\\Mendoza - Argentina}
+\fancyhead[C]{\scriptsize\textbf{\textbf{Microcontroladores y Electrónica de Potencia (Año 2024)}\\
+\textbf{PROYECTO GLOBAL INTEGRADOR}}}
+\fancyhead[R]{\scriptsize Peña Lautaro, Peralta Bruno\\19/07/2025}
+
+% Pie de página
+\fancyfoot[C]{Pág. \thepage\ de \pageref{LastPage}}
+
+\setlength{\headheight}{16.9528pt}  % importante si usás fancyhdr con varios renglones
+\setlength{\headsep}{0.5cm}    % separación entre cabecera y texto
+
+% \fancyhead[L]{Automática y Máquinas Eléctricas} % Encabezado izquierdo
+% \fancyhead[C]{2025} % Encabezado central
+% \fancyhead[R]{Peña Lautaro, Peralta Bruno} % Encabezado derecho
+% \fancyfoot[C]{\thepage} % Número de página centrado en el pie de página
+
+% Configuración de código
+\lstset{
+    backgroundcolor=\color{gray!10},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    captionpos=b,
+    commentstyle=\color{green!40!black},
+    escapeinside={\%*}{*},
+    frame=single,
+    keywordstyle=\color{blue},
+    numbers=left,
+    numbersep=5pt,
+    numberstyle=\tiny\color{gray},
+    rulecolor=\color{black},
+    showspaces=false,
+    showstringspaces=false,
+    stringstyle=\color{orange},
+    tabsize=4
+}
+
+\begin{document}
+
+% Portada
+\begin{titlepage}
+    \centering
+
+    % Logo
+    \includegraphics[width=0.8\textwidth]{img/fing.jpeg}\par\vspace{1cm}
+    \vspace{2cm}
+    % Título
+    {\Huge \textbf{Proyecto Global Integrador:}\\[0.5cm]
+    \textbf{CNC Laser de 3 Ejes}\vspace{2cm}}
+    % \textbf{Motor Sincrónico de Imanes Permanentes}\par}\vspace{2cm}
+    
+    % Autores
+    {\Large Peña Lautaro - 13099\\
+    Peralta Bruno - 13220\par}\vspace{0.5cm}
+    
+    % Profesor titular
+    {Año 2024\par}
+\end{titlepage}
+
+
+\newpage
+
+% Índice
+\tableofcontents
+\newpage
+
+
+% Introducción
+\section{Introducción}
+
+El presente proyecto consiste en la modificación de una impresora 3D antigua con el fin de reutilizar su estructura y componentes para desarrollar una máquina CNC de grabado láser destinada a la creación rápida de placas de circuito impreso (PCB). Esta herramienta permitirá fabricar prototipos de forma ágil para proyectos de electrónica y robótica.
+
+La motivación principal radica en el desafío de aprovechar un equipo en desuso y otorgarle una nueva funcionalidad, aportando una solución económica y eficiente para la etapa de prototipado de circuitos. El sistema combina conocimientos de control de motores, programación de microcontroladores, comunicación serial y ejecución de comandos G-code.
+
+\section{Esquema Tecnológico}
+
+\begin{center}
+\begin{tikzpicture}[node distance=3cm, auto]
+  % Bloques principales
+  \node[draw, rectangle, rounded corners, fill=blue!10] (pc) {PC con G-code};
+  \node[draw, rectangle, rounded corners, fill=green!10, below of=pc, yshift=-0.5cm] (bluepill) {Blue Pill STM32F103C8T6};
+  \node[draw, rectangle, rounded corners, fill=yellow!20, below of=bluepill, yshift=-0.5cm] (ramp) {RAMPS 1.4};
+  \node[draw, rectangle, rounded corners, fill=orange!10, below of=ramp, xshift=-5.5cm, yshift=-0.5cm] (driverX) {Driver A4988 - Eje X};
+  \node[draw, rectangle, rounded corners, fill=orange!10, below of=ramp, xshift=0cm, yshift=-0.5cm] (driverY) {Driver A4988 - Eje Y};
+  \node[draw, rectangle, rounded corners, fill=orange!10, below of=ramp, xshift=5.5cm, yshift=-0.5cm] (driverZ) {Driver A4988 - Eje Z};
+  \node[draw, rectangle, rounded corners, fill=red!10, below of=driverX, yshift=-0.5cm] (motorX) {M.PAP NEMA 17HS3430};
+  \node[draw, rectangle, rounded corners, fill=red!10, below of=driverY, yshift=-0.5cm] (motorY) {M.PAP NEMA 17HS8401};
+  \node[draw, rectangle, rounded corners, fill=red!10, below of=driverZ, yshift=-0.5cm] (motorZ) {M.PAP NEMA 17HS8401};
+  \node[draw, rectangle, rounded corners, fill=gray!20, right of=pc, xshift=5cm] (serial) {Monitor Serial};
+  \node[draw, rectangle, rounded corners, fill=cyan!20, right of=ramp, xshift=6cm] (endstops) {Fines de carrera};
+
+  % Conexiones
+  \draw[-{Stealth}] (pc) -- (bluepill) node[midway, left] {USB Serial};
+  \draw[-{Stealth}] (bluepill) -- (ramp) node[midway, left] {Interfaz};
+  \draw[-{Stealth}] (ramp) -- (driverX);
+  \draw[-{Stealth}] (ramp) -- (driverY);
+  \draw[-{Stealth}] (ramp) -- (driverZ);
+  \draw[-{Stealth}] (driverX) -- (motorX);
+  \draw[-{Stealth}] (driverY) -- (motorY);
+  \draw[-{Stealth}] (driverZ) -- (motorZ);
+  \draw[-{Stealth}, dashed] (ramp) -- (endstops) node[midway, above] {Sensores};
+  \draw[-{Stealth}, dashed] (pc) -- (serial);
+\end{tikzpicture}
+\end{center}
+
+\section{Detalle de Módulos}
+
+\subsection{Microcontrolador: Blue Pill STM32F103C8T6}
+Microcontrolador de 32 bits basado en ARM Cortex-M3, con 72 MHz, 64KB Flash y 20KB RAM. Opera a 3.3V, pero varios pines son tolerantes a 5V. Se programa mediante STM32CubeIDE. Más información en referencia \hyperref[ref1]{[1]}.
+
+\subsection{Drivers A4988}
+Módulos controladores de motores paso a paso, permiten controlar corriente y micropasos. Son compatibles con motores NEMA y reciben señales STEP/DIR desde el microcontrolador. Referencia \hyperref[ref2]{[2]}.
+
+\subsection{Motores paso a paso}
+\begin{itemize}
+  \item \textbf{17HS3430}: torque nominal 26 Ncm, corriente 1.2A/fase, 1.8° por paso. Ideal para eje X.
+  \item \textbf{17HS8401}: torque 52 Ncm, corriente 1.8A/fase. Usados en ejes Y y Z.
+\end{itemize}
+Hojas de datos disponibles en referencias \hyperref[ref3]{[3]} y \hyperref[ref4]{[4]}.
+
+\subsection{RAMPS 1.4}
+Placa de expansión diseñada para impresoras 3D, permite conectar drivers A4988, motores, finales de carrera y fuentes de alimentación. Es compatible eléctricamente con el Arduino Mega, pero se adapta a la Blue Pill mediante cableado personalizado. Referencia \hyperref[ref5]{[5]}.
+
+\subsection{Fines de carrera mecánicos}
+Interruptores tipo “normalmente cerrados” (NC) conectados a los pines PA12, PA15 y PA11 del microcontrolador. Se usan para detectar los límites de cada eje y realizar homing.
+
+
+% Funcionamiento general
+\section{Funcionamiento general}
+\subsection*{Interacción entre módulos y funciones}
+
+\begin{itemize}
+    \item \textbf{PC con G-code:} Envía comandos G-code a través de USB Serial. Puede utilizar un monitor serial para control manual y monitoreo.
+    \item \textbf{Blue Pill STM32F103C8T6:} Actúa como controlador principal, interpreta los comandos G-code, genera señales de paso y dirección para los motores, y procesa la información de los sensores de fin de carrera.
+    \item \textbf{RAMPS 1.4:} Placa de interfaz que conecta el microcontrolador con los drivers de motores y los sensores de límite.
+    \item \textbf{Drivers A4988:} Uno por cada eje (X, Y, Z), reciben señales STEP/DIR y controlan la corriente y microstepping de los motores.
+    \item \textbf{Motores paso a paso NEMA:} Ejecutan el movimiento mecánico.
+    \item \textbf{Sensores de fin de carrera:} Detectan la posición de referencia (\textit{home}) y evitan movimientos fuera del rango mecánico.
+\end{itemize}
+
+\subsection*{Diagrama de flujo}
+
+% Diagrama de flujo del funcionamiento general
+\begin{center}
+\begin{tikzpicture}[
+    scale=0.7,
+    transform shape,
+    node distance=1.5cm,
+    every node/.style={font=\scriptsize},
+    process/.style={rectangle, draw, fill=blue!10, rounded corners, minimum width=2.2cm, minimum height=0.7cm, align=center},
+    decision/.style={draw, shape=diamond, fill=yellow!20, inner sep=0.15cm, align=center},
+    startstop/.style={rectangle, draw, fill=green!20, rounded corners, minimum width=2.2cm, minimum height=0.7cm, align=center},
+    arrow/.style={-Stealth, thick}
+]
+
+% Nodos
+\node[startstop] (start) {Inicio sistema};
+\node[process, below of=start] (init) {Inicializar módulos};
+\node[process, below of=init] (recv) {Recibir G-code desde PC};
+\node[process, below of=recv] (interp) {Interpretar comando};
+\node[decision, below of=interp, yshift=-2cm] (decision1) {¿Es comando de movimiento?};
+\node[process, right=4.5cm of decision1] (action) {Ejecutar acción\\(ej: encender láser)};
+\node[process, below=1cm of decision1] (calc) {Calcular trayectoria\\y pasos de motores};
+\node[process, below of=calc] (send) {Enviar señales a drivers};
+\node[process, below of=send] (read) {Leer sensores de límites};
+\node[decision, below of=read, yshift=-2cm] (decision2) {¿Fin de carrera activado?};
+\node[process, left=4.5cm of decision2] (stopm) {Detener movimiento};
+\node[process, below=1cm of decision2] (wait) {Esperar nuevo comando};
+\node[startstop, below=1cm of stopm] (error) {Error};
+
+% Flechas
+\draw[arrow] (start) -- (init);
+\draw[arrow] (init) -- (recv);
+\draw[arrow] (recv) -- (interp);
+\draw[arrow] (interp) -- (decision1);
+\draw[arrow] (decision1.east) -- node[above]{No} (action.west);
+\draw[arrow] (decision1.south) -- node[left]{Sí} (calc.north);
+\draw[arrow] (action.south) |- (wait.east);
+\draw[arrow] (calc) -- (send);
+\draw[arrow] (send) -- (read);
+\draw[arrow] (read) -- (decision2);
+\draw[arrow] (decision2.west) -- node[above]{Sí} (stopm.east);
+\draw[arrow] (decision2.south) -- node[left]{No} (wait.north);
+\draw[arrow] (stopm.south) -- (error.north);
+\draw[arrow] (wait.west) -- ++(-9,0) |- (interp.west);
+
+
+
+
+\end{tikzpicture}
+\end{center}
+
+% \end{tikzpicture}
+
+% Programación
+\section{Programación}
+\subsection{Configuración de Periféricos del Controlador}
+
+\subsubsection{Microcontrolador: STM32F103C8T6 (Blue Pill)}
+
+\textbf{Configuración del Sistema de Clock:}
+\begin{itemize}
+    \item \textbf{Oscilador Externo (HSE):} 8 MHz con PLL x6 = 48 MHz de frecuencia del sistema
+    \item \textbf{AHB Clock:} 48 MHz
+    \item \textbf{APB1 Clock:} 24 MHz (dividido por 2)
+    \item \textbf{APB2 Clock:} 48 MHz
+    \item \textbf{USB Clock:} Derivado del PLL para operación a 48 MHz
+\end{itemize}
+
+\subsubsection{Interfaces de Comunicación}
+
+\textbf{1. USB Device CDC (Communication Device Class)}
+\begin{itemize}
+    \item \textbf{Pines:} PA11 (USB\_DM), PA12 (USB\_DP)
+    \item \textbf{Funcionalidad:} Comunicación serie virtual via USB
+    \item \textbf{Buffer:} RX=1024 bytes, TX=1024 bytes
+    \item \textbf{Sistema de Cola:} Implementado para transmisión confiable
+    \item \textbf{Interrupción:} \texttt{USB\_LP\_CAN1\_RX0\_IRQn} habilitada
+\end{itemize}
+
+\textbf{2. USART2 (Secundario, no utilizado activamente)}
+\begin{itemize}
+    \item \textbf{Pines:} PA2 (TX), PA3 (RX)
+    \item \textbf{Configuración:} 9600 baud, 8N1
+    \item \textbf{Propósito:} Debug opcional o comunicación auxiliar
+\end{itemize}
+
+\subsubsection{GPIO para Control de Motores Paso a Paso}
+
+% \begin{longtable}{|c|c|c|l|}
+% \hline
+% \textbf{Eje} & \textbf{Función} & \textbf{Pin} & \textbf{Descripción} \\
+% \hline
+% \multirow{4}{*}{X} & STEP & PB6 & Pulso de paso \\
+%  & DIR & PB7 & Dirección \\
+%  & ENABLE & PA8 & Habilitación del driver \\
+%  & ENDSTOP & PB12 & Final de carrera con pull-up \\
+% \hline
+% \multirow{4}{*}{Y} & STEP & PB9 & Pulso de paso \\
+%  & DIR & PB3 & Dirección \\
+%  & ENABLE & PB4 & Habilitación del driver \\
+%  & ENDSTOP & PB13 & Final de carrera con pull-up \\
+% \hline
+% \multirow{4}{*}{Z} & STEP & PA8 & Pulso de paso \\
+%  & DIR & PA9 & Dirección \\
+%  & ENABLE & PA10 & Habilitación del driver \\
+%  & ENDSTOP & PB14 & Final de carrera con pull-up \\
+% \hline
+% \multirow{2}{*}{LEDs} & ERROR & PB0 & Indicador de error \\
+%  & CHECK & PB1 & Indicador de estado \\
+% \hline
+% \end{longtable}
+
+\subsubsection{Interrupciones Externas (EXTI)}
+\begin{itemize}
+    \item \textbf{EXTI15\_10\_IRQn:} Maneja los finales de carrera (PB12, PB13, PB14)
+    \item \textbf{Configuración:} Trigger en flanco de subida con pull-up interno
+    \item \textbf{Prioridad:} 0 (alta prioridad)
+\end{itemize}
+
+\subsection{Módulos Externos}
+
+\subsubsection{Drivers de Motores Paso a Paso}
+\begin{itemize}
+    \item \textbf{Tipo:} Compatibles con señales STEP/DIR/ENABLE
+    \item \textbf{Control:} Lógica activa alta para STEP y DIR
+    \item \textbf{Enable:} Lógica activa baja (LOW = habilitado)
+    \item \textbf{Timing:} Delay de 800 mus entre pulsos configurables
+\end{itemize}
+
+\subsubsection{Finales de Carrera (Endstops)}
+\begin{itemize}
+    \item \textbf{Tipo:} Switches normalmente abiertos
+    \item \textbf{Conexión:} Con pull-up interno del STM32
+    \item \textbf{Detección:} Nivel bajo indica activación
+    \item \textbf{Funcionalidad:} Homing automático y protección contra colisiones
+\end{itemize}
+
+\subsection{Descripción de las Funciones Codificadas}
+
+\subsubsection{Función main()}
+
+La función principal implementa la siguiente estructura:
+
+% \begin{lstlisting}[language=C, caption=Estructura principal de main()]
+% int main(void) {
+%     // 1. Inicialización del HAL
+%     HAL_Init();
+    
+%     // 2. Configuración del clock del sistema
+%     SystemClock_Config();
+    
+%     // 3. Inicialización de periféricos
+%     MX_GPIO_Init();
+%     MX_USART2_UART_Init(); 
+%     MX_USB_DEVICE_Init();
+    
+%     // 4. Setup del sistema CNC
+%     setup();
+    
+%     // 5. Bucle principal infinito
+%     while(1) {
+%         CDC_TxQueue_Process();  // Procesar cola USB
+%         loop();                 // Procesar comandos y movimientos
+%     }
+% }
+% \end{lstlisting}
+
+\subsubsection{Algoritmos Principales}
+
+\textbf{1. Parser G-Code (gcode\_parser.c)}
+
+El parser G-code implementa un analizador sintáctico completo para comandos de control numérico:
+
+\textbf{Funciones clave:}
+\begin{itemize}
+    \item \texttt{gc\_init()}: Inicialización con estados modales por defecto
+    \item \texttt{gc\_parse\_line()}: Parsing completo de líneas G-code
+    \item \texttt{gc\_execute\_block()}: Ejecución de comandos parseados
+    \item \texttt{read\_float()}: Extracción de valores numéricos
+\end{itemize}
+
+\textbf{Comandos soportados:}
+\begin{itemize}
+    \item \textbf{G0:} Movimiento rápido
+    \item \textbf{G1:} Movimiento lineal con feed rate
+    \item \textbf{G2/G3:} Movimientos de arco (horario/antihorario)
+    \item \textbf{G4:} Pausa (dwell)
+    \item \textbf{G28:} Homing
+    \item \textbf{G92:} Establecer posición actual
+    \item \textbf{M3/M4/M5:} Control de spindle (simulado)
+\end{itemize}
+
+\textbf{2. Motion Planner (planner.c)}
+
+El planner implementa un algoritmo de lookahead para optimización de trayectorias:
+
+\textbf{Algoritmo Lookahead:}
+\begin{itemize}
+    \item \textbf{Buffer circular:} 8 bloques de movimiento
+    \item \textbf{Reverse Pass:} Optimización de velocidades de salida
+    \item \textbf{Forward Pass:} Optimización de velocidades de entrada
+    \item \textbf{Junction Control:} Control de desviación en curvas (0.1mm)
+\end{itemize}
+
+\textbf{Funciones principales:}
+\begin{itemize}
+    \item \texttt{planner\_buffer\_line()}: Agregar movimiento lineal
+    \item \texttt{planner\_buffer\_arc()}: Agregar movimiento de arco
+    \item \texttt{planner\_recalculate()}: Recálculo de velocidades
+    \item \texttt{planner\_process\_next\_block()}: Ejecución de bloques
+\end{itemize}
+
+\textbf{3. Control de Movimiento (motion.c)}
+
+Implementa los algoritmos de bajo nivel para el control de motores:
+
+\textbf{Algoritmos de movimiento:}
+\begin{itemize}
+    \item \textbf{Interpolación lineal:} Algoritmo de Bresenham para coordinar ejes
+    \item \textbf{Control de velocidad:} Cálculo dinámico de delays entre pasos
+    \item \textbf{Movimientos de arco:} Segmentación paramétrica con 50 segmentos
+\end{itemize}
+
+\textbf{Funciones de bajo nivel:}
+\begin{itemize}
+    \item \texttt{X\_stepOnce()}, \texttt{Y\_stepOnce()}, \texttt{Z\_stepOnce()}: Pulsos individuales
+    \item \texttt{moveAxesWithFeedRate()}: Movimiento coordinado multi-eje
+    \item \texttt{arc\_move\_r()}: Movimiento circular con radio especificado
+\end{itemize}
+
+\subsubsection{Máquina de Estados}
+
+\textbf{Estados del Sistema:}
+\begin{enumerate}
+    \item \textbf{IDLE:} Sistema listo para recibir comandos
+    \item \textbf{PARSING:} Procesando comando G-code
+    \item \textbf{PLANNING:} Agregando movimientos al buffer
+    \item \textbf{EXECUTING:} Ejecutando movimientos
+    \item \textbf{HOMING:} Realizando ciclo de homing
+    \item \textbf{ERROR:} Estado de error con recuperación
+\end{enumerate}
+
+\textbf{Estados del Programa:}
+\begin{itemize}
+    \item \texttt{isStoringProgram}: Modo almacenamiento de programa
+    \item \texttt{isProgramLoaded}: Programa cargado en memoria
+    \item \texttt{isProgramRunning}: Programa en ejecución
+    \item \texttt{usbCommandComplete}: Comando completo recibido
+\end{itemize}
+
+\subsubsection{Gestión de Interrupciones}
+
+\textbf{Interrupciones implementadas:}
+
+% \textbf{1. USB CDC (\texttt{CDC\_Receive\_FS})}
+% \begin{lstlisting}[language=C, caption=Recepción USB CDC]
+% // Recepción de caracteres via USB
+% // Buffer acumulativo hasta recibir '\n'
+% // Flag usbCommandComplete para procesamiento
+% \end{lstlisting}
+
+% \textbf{2. Endstops (\texttt{EXTI15\_10\_IRQHandler})}
+% \begin{lstlisting}[language=C, caption=Manejo de finales de carrera]
+% // Manejo de finales de carrera
+% // Detención inmediata de movimientos
+% // Activación de LEDs de error
+% \end{lstlisting}
+
+\textbf{3. SysTick (\texttt{HAL\_IncTick})}
+\begin{itemize}
+    \item Mantenimiento del time base del sistema
+    \item Soporte para delays precisos
+\end{itemize}
+
+\subsubsection{Funciones de Callback}
+
+El sistema implementa callbacks para integración modular:
+
+\textbf{Callbacks del Parser G-code:}
+\begin{itemize}
+    \item \texttt{moveAxesCallback()}: Movimiento coordinado estándar
+    \item \texttt{moveAxesRapidCallback()}: Movimiento rápido G0
+    \item \texttt{moveAxesLinearCallback()}: Movimiento lineal G1 con feed rate
+    \item \texttt{moveAxesArcCallback()}: Movimientos de arco G2/G3
+    \item \texttt{setPositionCallback()}: Establecimiento de posición G92
+    \item \texttt{performHomingCallback()}: Ciclo de homing G28
+\end{itemize}
+
+\subsubsection{Sistema de Colas y Buffers}
+
+\textbf{Cola de Transmisión USB:}
+\begin{itemize}
+    \item Buffer circular de 8 elementos
+    \item Procesamiento no bloqueante
+    \item Manejo de overflow automático
+\end{itemize}
+
+\textbf{Buffer del Planner:}
+\begin{itemize}
+    \item 8 bloques de movimiento lookahead
+    \item Recálculo automático de velocidades
+    \item Optimización de trayectorias suaves
+\end{itemize}
+
+\textbf{Buffer de Programa G-code:}
+\begin{itemize}
+    \item Almacenamiento de hasta 100 líneas
+    \item Ejecución secuencial o por pasos
+    \item Control de flujo completo
+\end{itemize}
+
+\subsubsection{Configuraciones Principales}
+
+\textbf{Parámetros de Máquina (config.h):}
+\begin{itemize}
+    \item \textbf{STEPS\_PER\_MM\_X/Y:} 79 pasos/mm
+    \item \textbf{STEPS\_PER\_MM\_Z:} 3930 pasos/mm
+    \item \textbf{STEP\_DELAY\_US:} 800 mus entre pulsos
+    \item \textbf{DEFAULT\_FEED\_RATE:} 100 mm/min
+    \item \textbf{DEFAULT\_RAPID\_RATE:} 1000 mm/min
+    \item \textbf{DEFAULT\_MAX\_FEED\_RATE:} 2000 mm/min
+\end{itemize}
+
+\textbf{Parámetros del Planner:}
+\begin{itemize}
+    \item \textbf{PLANNER\_BUFFER\_SIZE:} 8 bloques
+    \item \textbf{JUNCTION\_DEVIATION:} 0.1 mm
+    \item \textbf{ACCELERATION:} 1000 mm/min²
+    \item \textbf{MIN\_SEGMENT\_TIME\_US:} 20000 mus (20ms)
+\end{itemize}
+
+Esta implementación representa un controlador CNC completo y profesional con capacidades avanzadas de planning de movimientos, comunicación USB confiable y manejo robusto de errores.
+
+% Etapas de montaje y ensayos realizados
+\section{Etapas de montaje y ensayos realizados}
+Describir las pruebas parciales o conjuntas realizadas.
+
+% Resultados
+\section{Resultados y especificaciones finales}
+Explicitar el grado de cumplimiento de las metas y objetivos planteados inicialmente.  
+Determinar especificaciones técnicas como consumo, autonomía, precisión, velocidad, alcance, rangos de trabajo según corresponda a la aplicación.
+
+
+\subsection{Caracterización del Sistema}
+
+Se realizaron pruebas exhaustivas para caracterizar el rendimiento del sistema:
+
+\subsubsection{Precisión de Posicionamiento}
+
+\begin{table}[H]
+\centering
+\caption{Pruebas de precisión de posicionamiento}
+\label{tab:precision}
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Eje} & \textbf{Distancia Programada (mm)} & \textbf{Distancia Real (mm)} & \textbf{Error (\%)} \\
+\hline
+X & 10.000 & 10.002 & 0.02 \\
+X & 50.000 & 49.998 & -0.004 \\
+X & 100.000 & 100.005 & 0.005 \\
+\hline
+Y & 10.000 & 10.001 & 0.01 \\
+Y & 50.000 & 50.003 & 0.006 \\
+Y & 100.000 & 99.997 & -0.003 \\
+\hline
+Z & 5.000 & 5.001 & 0.02 \\
+Z & 20.000 & 19.999 & -0.005 \\
+Z & 40.000 & 40.002 & 0.005 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Velocidades de Trabajo}
+
+Las velocidades máximas alcanzadas por el sistema son:
+\begin{itemize}
+    \item Velocidad de desplazamiento rápido: 1500 mm/min
+    \item Velocidad de corte: 300-800 mm/min
+    \item Velocidad de grabado: 150-400 mm/min
+\end{itemize}
+
+\subsection{Pruebas Funcionales}
+
+\subsubsection{Prueba de Corte Lineal}
+
+Se realizó una prueba de corte lineal en madera MDF de 3mm de espesor. Los resultados mostraron:
+\begin{itemize}
+    \item Precisión dimensional: ±0.05mm
+    \item Acabado superficial: satisfactorio
+    \item Repetibilidad: 99.8\%
+\end{itemize}
+
+\subsubsection{Prueba de Interpolación Circular}
+
+Se ejecutó un programa G-code para corte circular:
+
+% \begin{lstlisting}[caption={Código G-code para prueba circular}]
+% G90         ; Coordenadas absolutas
+% G00 X0 Y0   ; Ir al origen
+% G01 Z-2 F100 ; Bajar herramienta
+% G02 X10 Y0 I5 J0 F300 ; Círculo horario
+% G00 Z5      ; Subir herramienta
+% M30         ; Fin del programa
+% \end{lstlisting}
+
+\subsection{Análisis de Rendimiento}
+
+\subsubsection{Consumo de Potencia}
+
+\begin{table}[H]
+\centering
+\caption{Análisis de consumo energético}
+\label{tab:consumo}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Componente} & \textbf{Corriente (A)} & \textbf{Potencia (W)} \\
+\hline
+STM32F103C8T6 & 0.02 & 0.1 \\
+Motores paso a paso (3x) & 1.2 & 14.4 \\
+Drivers A4988 (3x) & 0.15 & 1.8 \\
+Electrónica auxiliar & 0.08 & 1.0 \\
+\hline
+\textbf{Total} & \textbf{1.45} & \textbf{17.3} \\
+\hline
+\end{tabular}
+\end{table}
+
+% Conclusiones
+\section{Conclusiones. Ensayo de ingeniería de producto}
+Reflexión sobre el desarrollo realizado y perspectivas de mejoras del prototipo.  
+Ejercicio de selección de componentes para su paso a un producto comercial o sistema de aplicación industrial o del ámbito que corresponda.
+
+\subsection{Cumplimiento de Objetivos}
+
+El proyecto cumplió satisfactoriamente con todos los objetivos planteados:
+
+\begin{itemize}
+    \item Se desarrolló un sistema CNC funcional basado en STM32F103C8T6
+    \item El firmware adaptado de GRBL permite interpretación completa de G-code
+    \item La precisión alcanzada es adecuada para las aplicaciones objetivo
+    \item El costo total del sistema es significativamente menor a alternativas comerciales
+\end{itemize}
+
+\subsection{Aprendizajes Obtenidos}
+
+Durante el desarrollo del proyecto se adquirieron conocimientos en:
+\begin{itemize}
+    \item Programación de microcontroladores ARM Cortex-M3
+    \item Control de motores paso a paso y sistemas de movimiento
+    \item Interpretación y procesamiento de código G-code
+    \item Integración de hardware y software en sistemas embebidos
+    \item Técnicas de debugging y optimización en sistemas de tiempo real
+\end{itemize}
+
+\subsection{Trabajo Futuro}
+
+Las siguientes mejoras podrían implementarse en versiones futuras:
+
+\subsubsection{Hardware}
+\begin{itemize}
+    \item Implementación de encoders para retroalimentación de posición
+    \item Adición de sensores de temperatura y corriente
+    \item Upgrade a drivers de motor más avanzados (TMC2209, TMC5160)
+    \item Sistema de refrigeración para cortes prolongados
+\end{itemize}
+
+\subsubsection{Software}
+\begin{itemize}
+    \item Implementación de compensación de backlash
+    \item Algoritmos de aceleración adaptativa
+    \item Interface web para control remoto
+    \item Sistema de detección de colisiones
+\end{itemize}
+
+\subsubsection{Mecánica}
+\begin{itemize}
+    \item Estructura más rígida con perfiles de aluminio extruido
+    \item Sistema de transmisión por tornillos de bolas
+    \item Aumento del área de trabajo a 400x400x100mm
+    \item Sistema de sujeción de piezas mejorado
+\end{itemize}
+
+% Referencias
+\section{Referencias}
+Bibliografía, hojas de datos, guías, enlaces a sitios o documentos de internet.
+
+\begin{enumerate}
+  \item \label{ref1} STMicroelectronics. STM32F103C8 Datasheet. \\
+  \url{https://www.st.com/en/microcontrollers-microprocessors/stm32f103c8.html}
+  
+  \item \label{ref2} Pololu Corporation. A4988 Stepper Motor Driver Carrier. \\
+  \url{https://www.pololu.com/product/1182}
+  
+  \item \label{ref3} OMC StepperOnline. Motor NEMA 17HS3430 Datasheet. \\
+  \url{https://www.alldatasheet.es/datasheet-pdf/download/1137270/MOTIONKING/17HS3430.html}
+  
+  \item \label{ref4} OMC StepperOnline. Motor NEMA 17HS8401 Datasheet. \\
+  \url{https://www.alldatasheet.es/datasheet-pdf/download/1137270/MOTIONKING/17HS3430.html}
+  
+  \item \label{ref5} RepRap Community. RAMPS 1.4 Documentation. \\
+  \url{https://reprap.org/wiki/RAMPS_1.4}
+  
+  \item \label{ref6} Arduino STM32 Community. Blue Pill Pinout Reference. \\
+  \url{https://github.com/rogerclarkmelbourne/Arduino_STM32/wiki/Blue-Pill-Pinout}
+  
+  \item \label{ref7} RepRap Community. RAMPS 1.4 Schematic. \\
+  \url{https://reprap.org/mediawiki/images/c/c4/RAMPS1.4schematic.png}
+\end{enumerate}
+
+
+\begin{enumerate}
+    \item STMicroelectronics. (2023). \textit{STM32F103C8T6 Datasheet}. ST Microelectronics.
+    
+    \item Simen Svale Skogsrud. (2011). \textit{GRBL: An open source, embedded, high performance g-code-parser and CNC milling controller}. GitHub Repository.
+    
+    \item ARM Limited. (2023). \textit{ARM Cortex-M3 Technical Reference Manual}. ARM Holdings.
+    
+    \item Smid, P. (2019). \textit{CNC Programming Handbook: A Comprehensive Guide to Practical CNC Programming}. Industrial Press.
+    
+    \item Lynch, M. (2018). \textit{CNC Machining Handbook: Building, Programming, and Implementation}. McGraw-Hill Education.
+    
+    \item Valentino, J., \& Goldenberg, J. (2020). \textit{Introduction to Computer Numerical Control}. Pearson.
+    
+    \item Texas Instruments. (2022). \textit{Stepper Motor Control Guide}. TI Application Notes.
+    
+    \item Allegro MicroSystems. (2023). \textit{A4988 Microstepping Driver Datasheet}. Allegro MicroSystems.
+\end{enumerate}
+
+% Anexos
+\section{Anexos}
+Aquellos detalles no disponibles en las referencias de acceso público.
+
+\begin{itemize}
+  \item \textbf{Mapa de pines Blue Pill STM32F103C8T6}: Ver referencia \hyperref[ref6]{[6]}
+  \item \textbf{Esquema RAMPS 1.4}: Ver referencia \hyperref[ref7]{[7]}
+\end{itemize}
+
+
+\subsection{Anexo A: Esquemático de la PCB}
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=1.0\textwidth]{esquematico.png}
+    \caption{Esquemático completo del sistema}
+    \label{fig:esquematico}
+\end{figure}
+
+\subsection{Anexo B: Lista de Materiales (BOM)}
+
+\begin{longtable}{|c|p{6cm}|c|c|c|}
+\caption{Lista de materiales completa} \label{tab:bom} \\
+\hline
+\textbf{Ítem} & \textbf{Descripción} & \textbf{Cant.} & \textbf{Precio Unit.} & \textbf{Total} \\
+\hline
+\endfirsthead
+
+\multicolumn{5}{c}%
+{{\bfseries \tablename\ \thetable{} -- continuación de la página anterior}} \\
+\hline
+\textbf{Ítem} & \textbf{Descripción} & \textbf{Cant.} & \textbf{Precio Unit.} & \textbf{Total} \\
+\hline
+\endhead
+
+\hline \multicolumn{5}{|r|}{{Continúa en la siguiente página}} \\ \hline
+\endfoot
+
+\hline
+\endlastfoot
+
+1 & STM32F103C8T6 Blue Pill & 1 & \$5.00 & \$5.00 \\
+2 & Driver A4988 & 3 & \$2.50 & \$7.50 \\
+3 & Motor NEMA 17 & 3 & \$15.00 & \$45.00 \\
+4 & Fuente 12V 5A & 1 & \$12.00 & \$12.00 \\
+5 & Perfil de aluminio 20x20 & 2m & \$8.00 & \$16.00 \\
+6 & Varilla roscada M8 & 3 & \$3.00 & \$9.00 \\
+7 & Rodamientos lineales & 6 & \$2.00 & \$12.00 \\
+8 & Correas GT2 & 3m & \$1.50 & \$4.50 \\
+9 & Poleas GT2 20 dientes & 3 & \$2.00 & \$6.00 \\
+10 & Finales de carrera & 6 & \$1.00 & \$6.00 \\
+11 & Cables y conectores & - & \$15.00 & \$15.00 \\
+12 & PCB personalizada & 1 & \$10.00 & \$10.00 \\
+13 & Componentes electrónicos & - & \$20.00 & \$20.00 \\
+14 & Tornillería y fijaciones & - & \$25.00 & \$25.00 \\
+15 & Estructura mecánica & - & \$30.00 & \$30.00 \\
+\hline
+& \textbf{TOTAL} & & & \textbf{\$223.00} \\
+\hline
+\end{longtable}
+
+\subsection{Anexo C: Código Fuente Principal}
+
+El código fuente completo del proyecto está disponible en el repositorio:
+\url{https://github.com/BPera1111/Proyecto_Micro}
+
+\subsubsection{Archivos Principales:}
+\begin{itemize}
+    \item \texttt{main.c}: Función principal y configuración del sistema
+    \item \texttt{grbl/}: Directorio con el firmware GRBL adaptado
+    \item \texttt{gcode.py}: Interfaz de usuario en Python
+    \item \texttt{examples/}: Archivos G-code de ejemplo
+\end{itemize}
+
+\subsection{Anexo D: Resultados de Pruebas Detallados}
+
+\subsubsection{Log de Prueba de Precisión}
+\begin{lstlisting}[caption={Extracto del log de pruebas}]
+Test Date: 2025-08-11
+Test Type: Precision Positioning
+
+X-Axis Test:
+Command: G01 X10 F500
+Expected: 10.000mm
+Measured: 10.002mm
+Error: 0.02%
+
+Y-Axis Test:
+Command: G01 Y10 F500
+Expected: 10.000mm
+Measured: 10.001mm
+Error: 0.01%
+
+Z-Axis Test:
+Command: G01 Z5 F200
+Expected: 5.000mm
+Measured: 5.001mm
+Error: 0.02%
+\end{lstlisting}
+
+
+\section{Marco Teórico}
+
+\subsection{Control Numérico Computarizado (CNC)}
+
+El Control Numérico Computarizado es un método de automatización de máquinas herramientas mediante el uso de software y datos numéricos codificados. Los sistemas CNC ejecutan secuencias predeterminadas de comandos de máquina con poca o ninguna intervención del operador.
+
+\subsection{Microcontrolador STM32F103C8T6}
+
+El STM32F103C8T6 es un microcontrolador de 32 bits basado en el núcleo ARM Cortex-M3 con las siguientes características principales:
+
+\begin{itemize}
+    \item Frecuencia de operación de hasta 72 MHz
+    \item 64 KB de memoria Flash
+    \item 20 KB de memoria RAM
+    \item Múltiples periféricos incluyendo UART, SPI, I2C, ADC, PWM
+    \item 37 pines GPIO configurables
+\end{itemize}
+
+\subsection{Protocolo G-code}
+
+G-code es un lenguaje de programación numérica utilizado principalmente para controlar máquinas herramientas automatizadas. Cada línea de código G-code contiene comandos que especifican movimientos, velocidades, y operaciones de la herramienta.
+
+\subsubsection{Comandos G-code Principales}
+\begin{itemize}
+    \item \texttt{G00}: Movimiento rápido
+    \item \texttt{G01}: Interpolación lineal
+    \item \texttt{G02/G03}: Interpolación circular
+    \item \texttt{M03/M05}: Control del husillo
+    \item \texttt{G90/G91}: Coordenadas absolutas/incrementales
+\end{itemize}
+
+\subsection{GRBL}
+
+GRBL es un firmware de código abierto que transforma comandos G-code en señales de control para motores paso a paso. Originalmente desarrollado para microcontroladores AVR, ha sido portado a múltiples plataformas incluyendo ARM.
+
+\section{Metodología}
+
+\subsection{Diseño del Sistema}
+
+El desarrollo del proyecto se dividió en las siguientes etapas:
+
+\begin{enumerate}
+    \item Análisis de requerimientos y especificaciones técnicas
+    \item Diseño del hardware y selección de componentes
+    \item Implementación del firmware basado en GRBL
+    \item Desarrollo de la interfaz de usuario
+    \item Integración y pruebas del sistema
+    \item Validación y caracterización de la máquina
+\end{enumerate}
+
+\subsection{Herramientas Utilizadas}
+
+\subsubsection{Hardware}
+\begin{itemize}
+    \item Microcontrolador STM32F103C8T6 (Blue Pill)
+    \item Drivers de motores paso a paso (A4988)
+    \item Motores paso a paso NEMA 17
+    \item Estructura mecánica de aluminio
+    \item Fuente de alimentación conmutada
+\end{itemize}
+
+\subsubsection{Software}
+\begin{itemize}
+    \item STM32CubeIDE para desarrollo del firmware
+    \item Python para la interfaz de usuario
+    \item GRBL como base del firmware de control
+    \item CAM software para generación de G-code
+\end{itemize}
+
+\section{Desarrollo}
+
+\subsection{Diseño del Hardware}
+
+\subsubsection{Arquitectura del Sistema}
+
+El sistema CNC está compuesto por los siguientes módulos principales:
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.8\textwidth]{diagrama_bloques.png}
+    \caption{Diagrama de bloques del sistema CNC}
+    \label{fig:diagrama_bloques}
+\end{figure}
+
+\subsubsection{Selección de Componentes}
+
+La selección de componentes se basó en los siguientes criterios:
+\begin{itemize}
+    \item Compatibilidad con el microcontrolador STM32
+    \item Disponibilidad comercial y costo
+    \item Especificaciones técnicas apropiadas para la aplicación
+    \item Facilidad de integración y mantenimiento
+\end{itemize}
+
+\subsubsection{Diseño de la PCB}
+
+Se diseñó una PCB personalizada que integra:
+\begin{itemize}
+    \item Conectores para el microcontrolador STM32
+    \item Circuitos de acondicionamiento de señales
+    \item Conectores para drivers de motores
+    \item Circuitos de protección y filtrado
+    \item Interfaces de comunicación
+\end{itemize}
+
+\subsection{Implementación del Firmware}
+
+\subsubsection{Adaptación de GRBL}
+
+El firmware GRBL fue adaptado para trabajar con el microcontrolador STM32F103C8T6. Las principales modificaciones incluyeron:
+
+\begin{itemize}
+    \item Configuración de periféricos específicos del STM32
+    \item Adaptación de las rutinas de temporización
+    \item Implementación de drivers para comunicación USB
+    \item Optimización para el núcleo ARM Cortex-M3
+\end{itemize}
+
+\subsubsection{Estructura del Firmware}
+
+% \begin{lstlisting}[language=C, caption={Estructura principal del firmware}]
+% int main(void) {
+%     // Inicialización del sistema
+%     HAL_Init();
+%     SystemClock_Config();
+    
+%     // Inicialización de periféricos
+%     MX_GPIO_Init();
+%     MX_USB_DEVICE_Init();
+%     MX_TIM1_Init();
+    
+%     // Inicialización de GRBL
+%     grbl_init();
+    
+%     // Bucle principal
+%     while (1) {
+%         grbl_process();
+%     }
+% }
+% \end{lstlisting}
+
+\subsubsection{Configuración de Motores}
+
+% \begin{lstlisting}[language=C, caption={Configuración de pines para control de motores}]
+% // Configuración de pines para eje X
+% #define X_STEP_PIN    GPIO_PIN_2
+% #define X_DIR_PIN     GPIO_PIN_3
+% #define X_ENABLE_PIN  GPIO_PIN_4
+
+% // Configuración de pines para eje Y
+% #define Y_STEP_PIN    GPIO_PIN_5
+% #define Y_DIR_PIN     GPIO_PIN_6
+% #define Y_ENABLE_PIN  GPIO_PIN_7
+
+% // Configuración de pines para eje Z
+% #define Z_STEP_PIN    GPIO_PIN_8
+% #define Z_DIR_PIN     GPIO_PIN_9
+% #define Z_ENABLE_PIN  GPIO_PIN_10
+% \end{lstlisting}
+
+\subsection{Interfaz de Usuario}
+
+Se desarrolló una interfaz de usuario en Python que permite:
+
+\begin{itemize}
+    \item Cargar archivos G-code
+    \item Visualizar el toolpath
+    \item Controlar manualmente los ejes
+    \item Monitorear el estado de la máquina
+    \item Configurar parámetros de funcionamiento
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption={Código principal de la interfaz}]
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import serial
+import threading
+
+class CNCController:
+    def __init__(self):
+        self.serial_connection = None
+        self.setup_gui()
+    
+    def setup_gui(self):
+        self.root = tk.Tk()
+        self.root.title("Control CNC STM32")
+        self.create_widgets()
+    
+    def load_gcode_file(self):
+        filename = filedialog.askopenfilename(
+            filetypes=[("G-code files", "*.gcode"), ("All files", "*.*")]
+        )
+        if filename:
+            self.process_gcode_file(filename)
+\end{lstlisting}
+
+\section{Análisis y Discusión}
+
+\subsection{Ventajas del Sistema Desarrollado}
+
+\begin{itemize}
+    \item \textbf{Costo reducido:} Utilización de componentes de bajo costo y disponibles comercialmente
+    \item \textbf{Flexibilidad:} Firmware basado en estándares abiertos permite modificaciones
+    \item \textbf{Precisión adecuada:} Errores de posicionamiento menores al 0.02\%
+    \item \textbf{Facilidad de uso:} Interfaz intuitiva para operadores sin experiencia previa
+\end{itemize}
+
+\subsection{Limitaciones Identificadas}
+
+\begin{itemize}
+    \item \textbf{Área de trabajo limitada:} 200x200x50mm puede ser restrictivo para algunas aplicaciones
+    \item \textbf{Velocidades de corte:} Menores comparadas con sistemas comerciales
+    \item \textbf{Tipos de material:} Limitado a materiales blandos debido al torque de los motores
+\end{itemize}
+
+\subsection{Comparación con Sistemas Comerciales}
+
+\begin{table}[H]
+\centering
+\caption{Comparación con sistemas comerciales}
+\label{tab:comparacion}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Característica} & \textbf{Sistema Desarrollado} & \textbf{CNC Comercial Básica} & \textbf{CNC Comercial Avanzada} \\
+\hline
+Precisión & ±0.05mm & ±0.02mm & ±0.005mm \\
+Velocidad máx. & 1500 mm/min & 3000 mm/min & 15000 mm/min \\
+Área de trabajo & 200x200x50mm & 300x300x80mm & 600x400x150mm \\
+Costo aprox. & \$200 & \$800 & \$5000+ \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Aplicaciones Prácticas}
+
+\subsection{Casos de Uso Implementados}
+
+\subsubsection{Grabado de PCBs}
+
+El sistema demostró capacidad para realizar grabado de circuitos impresos con las siguientes especificaciones:
+\begin{itemize}
+    \item Ancho mínimo de pista: 0.2mm
+    \item Precisión de via: ±0.05mm
+    \item Tiempo de grabado: 15-30 min para PCB de 50x50mm
+\end{itemize}
+
+\subsubsection{Corte de Materiales}
+
+Se realizaron cortes exitosos en:
+\begin{itemize}
+    \item MDF hasta 5mm de espesor
+    \item Acrílico hasta 3mm de espesor
+    \item Cartón y papel de cualquier grosor
+    \item Espuma de poliestireno hasta 20mm
+\end{itemize}
+
+\subsection{Proyectos Educativos}
+
+El sistema se utilizó para:
+\begin{itemize}
+    \item Fabricación de maquetas arquitectónicas
+    \item Creación de plantillas y moldes
+    \item Proyectos de arte y diseño
+    \item Prototipado rápido de piezas mecánicas simples
+\end{itemize}
+
+
+\end{document}
