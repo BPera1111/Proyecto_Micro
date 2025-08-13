@@ -1211,22 +1211,37 @@ void processProgram(void) {
 /* USER CODE BEGIN 5 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    // // Tu código de interrupción aquí
+    // Tu código de interrupción aquí
     static uint32_t lastInterruptTime = 0;
     uint32_t currentTime = HAL_GetTick();
     
-    if (currentTime - lastInterruptTime < 50) return; // Debounce
+    // Debounce de 50ms para evitar múltiples disparos
+    if (currentTime - lastInterruptTime < 50) return;
     lastInterruptTime = currentTime;
+    
+    // Definir tolerancia en pasos (1mm para cada eje)
+    const int32_t TOLERANCE_X = 1 * STEPS_PER_MM_X;  // 1mm en pasos
+    const int32_t TOLERANCE_Y = 1 * STEPS_PER_MM_Y;  // 1mm en pasos  
+    const int32_t TOLERANCE_Z = 1 * STEPS_PER_MM_Z;  // 1mm en pasos
     
     switch(GPIO_Pin) {
         case GPIO_PIN_12: // X_MIN_PIN
-            if (currentX > 0.5) endstop_error_handler('X');
+            // Solo activar error si está a más de 1mm del home (posición 0)
+            if (currentX > TOLERANCE_X) {
+                endstop_error_handler('X');
+            }
             break;
         case GPIO_PIN_13: // Y_MIN_PIN
-            if (currentY > 0.5) endstop_error_handler('Y');
+            // Solo activar error si está a más de 1mm del home (posición 0)
+            if (currentY > TOLERANCE_Y) {
+                endstop_error_handler('Y');
+            }
             break;
         case GPIO_PIN_14: // Z_MIN_PIN
-            if (currentZ > 0.1) endstop_error_handler('Z');
+            // Solo activar error si está a más de 1mm del home (posición 0)
+            if (currentZ > TOLERANCE_Z) {
+                endstop_error_handler('Z');
+            }
             break;
     }
 }
@@ -1234,7 +1249,29 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 void endstop_error_handler(char axis)
 {
     disableSteppers();
-    sprintf(outputBuffer, "ERROR: Final de carrera %c presionado fuera de home!\r\n", axis);
+    
+    // Calcular posición actual en mm para el mensaje
+    float current_pos_mm;
+    switch(axis) {
+        case 'X':
+            current_pos_mm = currentX / (float)STEPS_PER_MM_X;
+            break;
+        case 'Y':
+            current_pos_mm = currentY / (float)STEPS_PER_MM_Y;
+            break;
+        case 'Z':
+            current_pos_mm = currentZ / (float)STEPS_PER_MM_Z;
+            break;
+        default:
+            current_pos_mm = 0.0f;
+    }
+    
+    // Convertir a enteros para evitar problemas con printf float
+    int pos_int = (int)current_pos_mm;
+    int pos_dec = (int)((current_pos_mm - pos_int) * 100);
+    
+    sprintf(outputBuffer, "ERROR: Final de carrera %c activado en pos=%d.%02dmm (fuera de tolerancia)!\r\n", 
+            axis, pos_int, abs(pos_dec));
     CDC_Transmit_Queued((uint8_t*)outputBuffer, strlen(outputBuffer));
     HAL_GPIO_WritePin(GPIOB, LED_ERROR, GPIO_PIN_SET);
 }

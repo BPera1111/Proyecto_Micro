@@ -21,8 +21,8 @@
 ../Core/Src/main.c:331:6:processGcode	160	static
 ../Core/Src/main.c:1166:6:processProgram	96	static
 ../Core/Src/main.c:441:6:loop	16	static
-../Core/Src/main.c:1234:6:endstop_error_handler	16	static
+../Core/Src/main.c:1249:6:endstop_error_handler	24	static
 ../Core/Src/main.c:1212:6:HAL_GPIO_EXTI_Callback	8	static
-../Core/Src/main.c:1247:6:Error_Handler	8	static,ignoring_inline_asm
+../Core/Src/main.c:1284:6:Error_Handler	8	static,ignoring_inline_asm
 ../Core/Src/main.c:200:6:SystemClock_Config	96	static
 ../Core/Src/main.c:134:5:main	40	static
