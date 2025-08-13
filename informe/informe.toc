@@ -28,25 +28,27 @@
 \contentsline {subsubsection}{\numberline {5.3.6}Sistema de Gestión de Programas}{9}{subsubsection.5.3.6}%
 \contentsline {subsubsection}{\numberline {5.3.7}Sistema de Comunicaciones}{9}{subsubsection.5.3.7}%
 \contentsline {section}{\numberline {6}Etapas de montaje y ensayos realizados}{10}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Ensamble y Adaptación del Sistema}{10}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Ensayos y Validación}{10}{subsection.6.2}%
 \contentsline {section}{\numberline {7}Resultados y especificaciones finales}{10}{section.7}%
 \contentsline {subsection}{\numberline {7.1}Grado de Cumplimiento de Metas y Objetivos}{10}{subsection.7.1}%
 \contentsline {subsubsection}{\numberline {7.1.1}Objetivos Principales Alcanzados}{10}{subsubsection.7.1.1}%
 \contentsline {subsubsection}{\numberline {7.1.2}Objetivos Secundarios}{11}{subsubsection.7.1.2}%
-\contentsline {subsection}{\numberline {7.2}Especificaciones Técnicas Alcanzadas}{11}{subsection.7.2}%
-\contentsline {subsubsection}{\numberline {7.2.1}Resolución de Movimiento}{11}{subsubsection.7.2.1}%
-\contentsline {subsubsection}{\numberline {7.2.2}Velocidad y Rendimiento}{11}{subsubsection.7.2.2}%
-\contentsline {paragraph}{Velocidades de Operación}{11}{section*.5}%
-\contentsline {paragraph}{Tiempos de Respuesta}{11}{section*.6}%
-\contentsline {subsubsection}{\numberline {7.2.3}Rangos de Trabajo}{11}{subsubsection.7.2.3}%
-\contentsline {subsubsection}{\numberline {7.2.4}Manejo de Errores y Estabilidad}{12}{subsubsection.7.2.4}%
-\contentsline {subsection}{\numberline {7.3}Limitaciones Identificadas}{12}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Comparación con Objetivos Iniciales}{12}{subsection.7.4}%
-\contentsline {section}{\numberline {8}Conclusiones. Ensayo de ingeniería de producto.}{13}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Cumplimiento de Objetivos}{13}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Aprendizajes Obtenidos}{13}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Trabajo Futuro}{13}{subsection.8.3}%
-\contentsline {subsubsection}{\numberline {8.3.1}Hardware}{13}{subsubsection.8.3.1}%
+\contentsline {subsection}{\numberline {7.2}Especificaciones Técnicas Alcanzadas}{12}{subsection.7.2}%
+\contentsline {subsubsection}{\numberline {7.2.1}Resolución de Movimiento}{12}{subsubsection.7.2.1}%
+\contentsline {subsubsection}{\numberline {7.2.2}Velocidad y Rendimiento}{12}{subsubsection.7.2.2}%
+\contentsline {paragraph}{Velocidades de Operación}{12}{section*.5}%
+\contentsline {paragraph}{Tiempos de Respuesta}{12}{section*.6}%
+\contentsline {subsubsection}{\numberline {7.2.3}Rangos de Trabajo}{12}{subsubsection.7.2.3}%
+\contentsline {subsubsection}{\numberline {7.2.4}Manejo de Errores y Estabilidad}{13}{subsubsection.7.2.4}%
+\contentsline {subsection}{\numberline {7.3}Limitaciones Identificadas}{13}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Comparación con Objetivos Iniciales}{13}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Conclusiones. Ensayo de ingeniería de producto.}{14}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Cumplimiento de Objetivos}{14}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Aprendizajes Obtenidos}{14}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Trabajo Futuro}{14}{subsection.8.3}%
+\contentsline {subsubsection}{\numberline {8.3.1}Hardware}{14}{subsubsection.8.3.1}%
 \contentsline {subsubsection}{\numberline {8.3.2}Software}{14}{subsubsection.8.3.2}%
 \contentsline {subsubsection}{\numberline {8.3.3}Mecánica}{14}{subsubsection.8.3.3}%
-\contentsline {section}{\numberline {9}Referencias}{14}{section.9}%
-\contentsline {section}{\numberline {10}Anexos}{14}{section.10}%
+\contentsline {section}{\numberline {9}Referencias}{15}{section.9}%
+\contentsline {section}{\numberline {10}Anexos}{15}{section.10}%

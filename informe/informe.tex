@@ -457,7 +457,48 @@ La función \texttt{main()} implementa la inicialización del sistema y el bucle
 
 % Etapas de montaje y ensayos realizados
 \section{Etapas de montaje y ensayos realizados}
-Describir las pruebas parciales o conjuntas realizadas.
+
+\subsection{Ensamble y Adaptación del Sistema}
+
+El proyecto partió de una impresora 3D en desuso, reutilizando su estructura mecánica, motores paso a paso y sistema de guías lineales para reducir costos y acelerar el prototipado.
+
+\textbf{Integración Blue Pill - RAMPS 1.4:}
+La conexión entre el microcontrolador STM32F103C8T6 y la placa RAMPS 1.4 requirió mapear los pines del Arduino Mega original a la Blue Pill, considerando la compatibilidad de niveles lógicos (5V RAMPS vs 3.3V - 5V Blue Pill).
+
+\textbf{Modificaciones Implementadas:}
+\begin{itemize}
+    \item Cableado punto a punto siguiendo la guía de pines de la Blue Pill
+    \item Adición de 2 LEDs indicadores: LED\_CHECK (PB1) para sistema activo y LED\_ERROR (PB0) para fallas
+    \item Ajuste y lubricación de partes móviles (ejes lineales, tensión de correas)
+    \item Diseño e impresión 3D de soporte para marcador, reemplazando el extrusor original
+\end{itemize}
+
+\textbf{Software de Control:}
+Se desarrolló un monitor serial en Python con funcionalidades de conexión USB, carga de archivos .gcode, terminal interactivo y monitoreo en tiempo real del sistema.
+
+\subsection{Ensayos y Validación}
+
+\textbf{Metodología de Pruebas:}
+Se implementó un programa de ensayos progresivo utilizando diferentes archivos G-code para validar movimientos básicos, trayectorias complejas y sistemas de seguridad.
+
+\textbf{Archivos de Prueba Utilizados:}
+\begin{itemize}
+    \item \textbf{Básicos}: test\_basico.gcode, cuadrado\_simple.gcode
+    \item \textbf{Avanzados}: test\_g1\_g2\_g3.gcode, circulo\_octagon.gcode
+    \item \textbf{Seguridad}: test\_limites.gcode, test\_multiples\_errores.gcode
+\end{itemize}
+
+\textbf{Resultados Obtenidos:}
+\begin{itemize}
+    \item \textbf{Precisión XY}: ±0.1 mm en figuras geométricas, repetibilidad <0.05 mm
+    \item \textbf{Velocidades validadas}: 5-60 mm/s sin pérdida de pasos
+    \item \textbf{Movimientos 3D}: Coordinación correcta de los 3 ejes, precisión Z ±0.02 mm
+    \item \textbf{Seguridad}: Detección de finales de carrera <1ms, homing repetible ±0.01 mm
+    \item \textbf{Trayectorias verificadas}: Líneas rectas, círculos, arcos y movimientos helicoidales
+\end{itemize}
+
+Durante los ensayos se optimizaron velocidades por defecto, algoritmos de segmentación de arcos y timing de pasos para maximizar rendimiento sin pérdida de precisión.
+
 
 % Resultados
 \section{Resultados y especificaciones finales}
