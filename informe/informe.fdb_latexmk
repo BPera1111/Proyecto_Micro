@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1755060924.64636 "c:/Users/lauta/OneDrive/Documentos/Microcontroladores/Proyecto_Micro/informe/informe.tex" "informe.pdf" "informe" 1755060926.96814 0
+["pdflatex"] 1755063751.81592 "c:/Users/lauta/OneDrive/Documentos/Microcontroladores/Proyecto_Micro/informe/informe.tex" "informe.pdf" "informe" 1755063754.16878 0
   "C:/Users/lauta/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1754926540 82686 2381c3433487640bf26aa76a10db7eb2 ""
   "C:/Users/lauta/AppData/Local/MiKTeX/fonts/pk/ljfour/jknappen/ec/dpi600/tcbx1200.pk" 1748538255 15080 e0f3ed644b86996f62a77127c70e6bf7 ""
   "C:/Users/lauta/AppData/Local/MiKTeX/fonts/pk/ljfour/jknappen/ec/dpi600/tcrm1200.pk" 1755042351 14064 92dffd69f070a8feb64d0c4acc857dd0 ""
@@ -165,6 +165,7 @@
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/listings/lstlang1.sty" 1741168183 206518 4eb59a801ad842a713fa168c34227290 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/listings/lstmisc.sty" 1741168182 77051 be68720e5402397a830abb9eed5a2cb4 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/listings/lstpatch.sty" 1741168182 353 9024412f43e92cd5b21fe9ded82d0610 ""
+  "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/multirow/multirow.sty" 1731767677 6696 886c9f3087d0b973ed2c19aa79cb3023 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/pgf/basiclayer/pgf.sty" 1673775190 1090 bae35ef70b3168089ef166db3e66f5b2 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/pgf/basiclayer/pgfcore.sty" 1673775190 373 00b204b1d7d095b892ad31a7494b0373 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/pgf/compatibility/pgfcomp-version-0-65.sty" 1673775190 21013 f4ff83d25bb56552493b030f27c075ae ""
@@ -180,12 +181,12 @@
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/tools/longtable.sty" 1730400552 15900 3cb191e576c7a313634d2813c55d4bf1 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
   "C:/Users/lauta/AppData/Local/Programs/MiKTeX/tex/latex/xcolor/xcolor.sty" 1729265222 55384 b454dec21c2d9f45ec0b793f0995b992 ""
-  "c:/Users/lauta/OneDrive/Documentos/Microcontroladores/Proyecto_Micro/informe/informe.tex" 1755060869 38911 ccd0f32c7cfe9f528a1354977dee9a30 ""
+  "c:/Users/lauta/OneDrive/Documentos/Microcontroladores/Proyecto_Micro/informe/informe.tex" 1755063750 37890 9e9c19866617cde109caf5cbee0652f9 ""
   "img/fing.jpeg" 1755042472 9846 ddb6575f644a8c0565930f69d988ce80 ""
-  "informe.aux" 1755060926 13483 832fb0fa821633a638135074d7d456b7 "pdflatex"
-  "informe.out" 1755060926 14806 a9cf28f139408ed9ba122499d8f97d4d "pdflatex"
-  "informe.tex" 1755060869 38911 ccd0f32c7cfe9f528a1354977dee9a30 ""
-  "informe.toc" 1755060926 7586 93b23f238629fbdfd2973f695a8b4fbd "pdflatex"
+  "informe.aux" 1755063753 13873 50453489ffe38d4ada7ff6d4966586e7 "pdflatex"
+  "informe.out" 1755063753 14905 a665797949b05850c30120295c0ceaee "pdflatex"
+  "informe.tex" 1755063750 37890 9e9c19866617cde109caf5cbee0652f9 ""
+  "informe.toc" 1755063753 7735 427695a675b6a5dc38e1153918b28039 "pdflatex"
   (generated)
   "informe.aux"
   "informe.log"

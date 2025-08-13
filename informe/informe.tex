@@ -21,6 +21,7 @@
 \usepackage{listings}
 \usepackage{float}
 \usepackage{longtable}
+\usepackage{multirow}
 \geometry{a4paper, margin=1.3cm}
 
 \title{Anteproyecto: Impresora 3D Modificada para Grabado Láser CNC de PCB}
@@ -227,22 +228,13 @@ Interruptores tipo “normalmente cerrados” (NC) conectados a los pines PA12, 
 
 % Programación
 \section{Programación}
-\subsection{Configuración de Periféricos del Controlador}
 
-\subsubsection{Microcontrolador: STM32F103C8T6 (Blue Pill)}
-
-\textbf{Configuración del Sistema de Clock:}
-\begin{itemize}
-    \item \textbf{Oscilador Externo (HSE):} 8 MHz con PLL x6 = 48 MHz de frecuencia del sistema
-    \item \textbf{AHB Clock:} 48 MHz
-    \item \textbf{APB1 Clock:} 24 MHz (dividido por 2)
-    \item \textbf{APB2 Clock:} 48 MHz
-    \item \textbf{USB Clock:} Derivado del PLL para operación a 48 MHz
-\end{itemize}
+\subsection{Configuración de Periféricos del Controlador STM32F103C8T6}
 
 \subsubsection{Interfaces de Comunicación}
 
-\textbf{1. USB Device CDC (Communication Device Class)}
+\textbf{USB CDC (Communication Device Class):} el sistema utiliza comunicación USB para interactuar con el software de control externo (software host), implementando un puerto serial virtual.
+
 \begin{itemize}
     \item \textbf{Pines:} PA11 (USB\_DM), PA12 (USB\_DP)
     \item \textbf{Funcionalidad:} Comunicación serie virtual via USB
@@ -251,45 +243,63 @@ Interruptores tipo “normalmente cerrados” (NC) conectados a los pines PA12, 
     \item \textbf{Interrupción:} \texttt{USB\_LP\_CAN1\_RX0\_IRQn} habilitada
 \end{itemize}
 
-\textbf{2. USART2 (Secundario, no utilizado activamente)}
+\subsubsection{Control de Motores Paso a Paso}
+
+\textbf{Configuración GPIO para Motores:} el sistema controla 3 motores paso a paso (ejes X, Y, Z) mediante pines GPIO configurados como salidas push-pull:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Eje} & \textbf{STEP} & \textbf{DIR} & \textbf{EN} & \textbf{Endstop} \\
+\hline
+X & PB6 & PB7 & PA8 & PB12 \\
+Y & PB9 & PB3 & PB4 & PB13 \\
+Z & PA8 & PA9 & PA10 & PB14 \\
+\hline
+\end{tabular}
+\caption{Configuración de pines para control de motores}
+\end{table}
+
+\textbf{Características de Timing:}
 \begin{itemize}
-    \item \textbf{Pines:} PA2 (TX), PA3 (RX)
-    \item \textbf{Configuración:} 9600 baud, 8N1
-    \item \textbf{Propósito:} Debug opcional o comunicación auxiliar
+    \item \textbf{Delay base entre pasos}: 800 µs (configurable)
+    \item \textbf{Pulso de STEP}: 2 µs de duración mínima
+    \item \textbf{Velocidad máxima}: Limitada por \texttt{calculateStepDelay()} basado en feed rate
+    \item \textbf{Timing preciso}: Utilización del contador DWT para delays de microsegundos
 \end{itemize}
 
-\subsubsection{GPIO para Control de Motores Paso a Paso}
+\subsubsection{Sistema de Interrupciones Externas}
 
-% \begin{longtable}{|c|c|c|l|}
-% \hline
-% \textbf{Eje} & \textbf{Función} & \textbf{Pin} & \textbf{Descripción} \\
-% \hline
-% \multirow{4}{*}{X} & STEP & PB6 & Pulso de paso \\
-%  & DIR & PB7 & Dirección \\
-%  & ENABLE & PA8 & Habilitación del driver \\
-%  & ENDSTOP & PB12 & Final de carrera con pull-up \\
-% \hline
-% \multirow{4}{*}{Y} & STEP & PB9 & Pulso de paso \\
-%  & DIR & PB3 & Dirección \\
-%  & ENABLE & PB4 & Habilitación del driver \\
-%  & ENDSTOP & PB13 & Final de carrera con pull-up \\
-% \hline
-% \multirow{4}{*}{Z} & STEP & PA8 & Pulso de paso \\
-%  & DIR & PA9 & Dirección \\
-%  & ENABLE & PA10 & Habilitación del driver \\
-%  & ENDSTOP & PB14 & Final de carrera con pull-up \\
-% \hline
-% \multirow{2}{*}{LEDs} & ERROR & PB0 & Indicador de error \\
-%  & CHECK & PB1 & Indicador de estado \\
-% \hline
-% \end{longtable}
+\textbf{Finales de Carrera:} configuración de interrupciones para detección de límites físicos:
 
-\subsubsection{Interrupciones Externas (EXTI)}
 \begin{itemize}
-    \item \textbf{EXTI15\_10\_IRQn:} Maneja los finales de carrera (PB12, PB13, PB14)
-    \item \textbf{Configuración:} Trigger en flanco de subida con pull-up interno
-    \item \textbf{Prioridad:} 0 (alta prioridad)
+    \item \textbf{Pines}: PB12, PB13, PB14
+    \item \textbf{Modo}: Interrupción por flanco ascendente
+    \item \textbf{Pull-up}: Resistencias pull-up internas habilitadas
+    \item \textbf{Prioridad}: Prioridad 0 (máxima) para respuesta inmediata
+    \item \textbf{Debounce}: Implementado por software (50ms)
 \end{itemize}
+
+\subsubsection{Indicadores LED}
+
+\textbf{LEDs de Estado}
+\begin{itemize}
+    \item \textbf{LED\_CHECK} (PB1): Indicador de sistema activo
+    \item \textbf{LED\_ERROR} (PB0): Indicador de errores del sistema
+    \item \textbf{Configuración}: Salidas push-pull, activo en alto
+\end{itemize}
+
+\subsubsection{Configuración del Sistema de Reloj}
+
+\begin{itemize}
+    \item \textbf{Oscilador Externo (HSE):} 8 MHz con PLL x6 = 48 MHz de frecuencia del sistema
+    \item \textbf{AHB Clock:} 48 MHz
+    \item \textbf{APB1 Clock:} 24 MHz (dividido por 2)
+    \item \textbf{APB2 Clock:} 48 MHz
+    \item \textbf{USB Clock:} Derivado del PLL para operación a 48 MHz
+\end{itemize}
+
 
 \subsection{Módulos Externos}
 
@@ -298,212 +308,151 @@ Interruptores tipo “normalmente cerrados” (NC) conectados a los pines PA12, 
     \item \textbf{Tipo:} Compatibles con señales STEP/DIR/ENABLE
     \item \textbf{Control:} Lógica activa alta para STEP y DIR
     \item \textbf{Enable:} Lógica activa baja (LOW = habilitado)
-    \item \textbf{Timing:} Delay de 800 mus entre pulsos configurables
+    \item \textbf{Timing:} Delay de 800 \textmu{}s entre pulsos configurables
 \end{itemize}
 
-\subsubsection{Finales de Carrera (Endstops)}
+\subsubsection{Finales de Carrera}
 \begin{itemize}
     \item \textbf{Tipo:} Switches normalmente abiertos
     \item \textbf{Conexión:} Con pull-up interno del STM32
     \item \textbf{Detección:} Nivel bajo indica activación
-    \item \textbf{Funcionalidad:} Homing automático y protección contra colisiones
+    \item \textbf{Funcionalidad:} Homing y detección de límites
 \end{itemize}
 
-\subsection{Descripción de las Funciones Codificadas}
+
+\subsection{Descripción de Funciones Codificadas}
 
 \subsubsection{Función main()}
 
-La función principal implementa la siguiente estructura:
+\paragraph{Estructura Principal}
+La función \texttt{main()} implementa la inicialización del sistema y el bucle principal:
 
-% \begin{lstlisting}[language=C, caption=Estructura principal de main()]
-% int main(void) {
-%     // 1. Inicialización del HAL
-%     HAL_Init();
-    
-%     // 2. Configuración del clock del sistema
-%     SystemClock_Config();
-    
-%     // 3. Inicialización de periféricos
-%     MX_GPIO_Init();
-%     MX_USART2_UART_Init(); 
-%     MX_USB_DEVICE_Init();
-    
-%     // 4. Setup del sistema CNC
-%     setup();
-    
-%     // 5. Bucle principal infinito
-%     while(1) {
-%         CDC_TxQueue_Process();  // Procesar cola USB
-%         loop();                 // Procesar comandos y movimientos
-%     }
-% }
-% \end{lstlisting}
-
-\subsubsection{Algoritmos Principales}
-
-\textbf{1. Parser G-Code (gcode\_parser.c)}
-
-El parser G-code implementa un analizador sintáctico completo para comandos de control numérico:
-
-\textbf{Funciones clave:}
 \begin{itemize}
-    \item \texttt{gc\_init()}: Inicialización con estados modales por defecto
-    \item \texttt{gc\_parse\_line()}: Parsing completo de líneas G-code
-    \item \texttt{gc\_execute\_block()}: Ejecución de comandos parseados
-    \item \texttt{read\_float()}: Extracción de valores numéricos
+    \item \textbf{Inicialización HAL}: \texttt{HAL\_Init()}
+    \item \textbf{Configuración de reloj}: \texttt{SystemClock\_Config()}
+    \item \textbf{Inicialización de periféricos}: GPIO, UART, USB
+    \item \textbf{Setup personalizado}: Configuración específica del CNC
+    \item \textbf{Bucle infinito}: Procesamiento continuo de comandos y estados
 \end{itemize}
 
-\textbf{Comandos soportados:}
-\begin{itemize}
-    \item \textbf{G0:} Movimiento rápido
-    \item \textbf{G1:} Movimiento lineal con feed rate
-    \item \textbf{G2/G3:} Movimientos de arco (horario/antihorario)
-    \item \textbf{G4:} Pausa (dwell)
-    \item \textbf{G28:} Homing
-    \item \textbf{G92:} Establecer posición actual
-    \item \textbf{M3/M4/M5:} Control de spindle (simulado)
-\end{itemize}
+\subsubsection{Algoritmos de Control de Movimiento}
 
-\textbf{2. Motion Planner (planner.c)}
+\textbf{Algoritmo de Bresenham Modificado:} implementado en \texttt{motion.c} para movimientos lineales coordenados.
 
-El planner implementa un algoritmo de lookahead para optimización de trayectorias:
-
-\textbf{Algoritmo Lookahead:}
-\begin{itemize}
-    \item \textbf{Buffer circular:} 8 bloques de movimiento
-    \item \textbf{Reverse Pass:} Optimización de velocidades de salida
-    \item \textbf{Forward Pass:} Optimización de velocidades de entrada
-    \item \textbf{Junction Control:} Control de desviación en curvas (0.1mm)
-\end{itemize}
-
-\textbf{Funciones principales:}
-\begin{itemize}
-    \item \texttt{planner\_buffer\_line()}: Agregar movimiento lineal
-    \item \texttt{planner\_buffer\_arc()}: Agregar movimiento de arco
-    \item \texttt{planner\_recalculate()}: Recálculo de velocidades
-    \item \texttt{planner\_process\_next\_block()}: Ejecución de bloques
-\end{itemize}
-
-\textbf{3. Control de Movimiento (motion.c)}
-
-Implementa los algoritmos de bajo nivel para el control de motores:
-
-\textbf{Algoritmos de movimiento:}
-\begin{itemize}
-    \item \textbf{Interpolación lineal:} Algoritmo de Bresenham para coordinar ejes
-    \item \textbf{Control de velocidad:} Cálculo dinámico de delays entre pasos
-    \item \textbf{Movimientos de arco:} Segmentación paramétrica con 50 segmentos
-\end{itemize}
-
-\textbf{Funciones de bajo nivel:}
-\begin{itemize}
-    \item \texttt{X\_stepOnce()}, \texttt{Y\_stepOnce()}, \texttt{Z\_stepOnce()}: Pulsos individuales
-    \item \texttt{moveAxesWithFeedRate()}: Movimiento coordinado multi-eje
-    \item \texttt{arc\_move\_r()}: Movimiento circular con radio especificado
-\end{itemize}
-
-\subsubsection{Máquina de Estados}
-
-\textbf{Estados del Sistema:}
 \begin{enumerate}
-    \item \textbf{IDLE:} Sistema listo para recibir comandos
-    \item \textbf{PARSING:} Procesando comando G-code
-    \item \textbf{PLANNING:} Agregando movimientos al buffer
-    \item \textbf{EXECUTING:} Ejecutando movimientos
-    \item \textbf{HOMING:} Realizando ciclo de homing
-    \item \textbf{ERROR:} Estado de error con recuperación
+    \item Cálculo de diferencias absolutas entre coordenadas
+    \item Determinación del eje dominante (mayor distancia)
+    \item Interpolación lineal para mantener proporcionalidad
+    \item Control de timing basado en feed rate especificado
 \end{enumerate}
 
-\textbf{Estados del Programa:}
+\textbf{Generación de Arcos:} Algoritmo para movimientos circulares (G2/G3).
+
 \begin{itemize}
-    \item \texttt{isStoringProgram}: Modo almacenamiento de programa
-    \item \texttt{isProgramLoaded}: Programa cargado en memoria
-    \item \texttt{isProgramRunning}: Programa en ejecución
-    \item \texttt{usbCommandComplete}: Comando completo recibido
+    \item \textbf{Segmentación}: División del arco en 50 segmentos lineales
+    \item \textbf{Cálculo trigonométrico}: Uso de seno y coseno para interpolación
+    \item \textbf{Precisión}: Balance entre suavidad y carga computacional
 \end{itemize}
 
-\subsubsection{Gestión de Interrupciones}
+\subsubsection{Parser G-code}
 
-\textbf{Interrupciones implementadas:}
+\textbf{Análisis Léxico y Sintáctico:} implementado en \texttt{gcode\_parser.c} con las siguientes características.
 
-% \textbf{1. USB CDC (\texttt{CDC\_Receive\_FS})}
-% \begin{lstlisting}[language=C, caption=Recepción USB CDC]
-% // Recepción de caracteres via USB
-% // Buffer acumulativo hasta recibir '\n'
-% // Flag usbCommandComplete para procesamiento
-% \end{lstlisting}
-
-% \textbf{2. Endstops (\texttt{EXTI15\_10\_IRQHandler})}
-% \begin{lstlisting}[language=C, caption=Manejo de finales de carrera]
-% // Manejo de finales de carrera
-% // Detención inmediata de movimientos
-% // Activación de LEDs de error
-% \end{lstlisting}
-
-\textbf{3. SysTick (\texttt{HAL\_IncTick})}
 \begin{itemize}
-    \item Mantenimiento del time base del sistema
-    \item Soporte para delays precisos
+    \item \textbf{Parsing modular}: Separación de análisis y ejecución
+    \item \textbf{Validación de grupos modales}: Verificación de compatibilidad de comandos
+    \item \textbf{Gestión de estado}: Mantenimiento de estado modal persistente
+    \item \textbf{Verificación de límites}: Control de límites software en tiempo real
 \end{itemize}
 
-\subsubsection{Funciones de Callback}
-
-El sistema implementa callbacks para integración modular:
-
-\textbf{Callbacks del Parser G-code:}
+\textbf{Comandos Soportados:}
 \begin{itemize}
-    \item \texttt{moveAxesCallback()}: Movimiento coordinado estándar
-    \item \texttt{moveAxesRapidCallback()}: Movimiento rápido G0
-    \item \texttt{moveAxesLinearCallback()}: Movimiento lineal G1 con feed rate
-    \item \texttt{moveAxesArcCallback()}: Movimientos de arco G2/G3
-    \item \texttt{setPositionCallback()}: Establecimiento de posición G92
-    \item \texttt{performHomingCallback()}: Ciclo de homing G28
+    \item \textbf{G0}: Movimiento rápido (rapid positioning)
+    \item \textbf{G1}: Movimiento lineal con feed rate
+    \item \textbf{G2/G3}: Movimientos circulares horario/antihorario
+    \item \textbf{G28}: Homing de todos los ejes
+    \item \textbf{M114}: Reporte de posición actual
+    \item \textbf{M119}: Estado de finales de carrera
+    \item \textbf{M503}: Mostrar configuración del sistema
 \end{itemize}
 
-\subsubsection{Sistema de Colas y Buffers}
+\subsubsection{Sistema de Interrupciones}
 
-\textbf{Cola de Transmisión USB:}
+\textbf{Manejo de Finales de Carrera:} función \texttt{HAL\_GPIO\_EXTI\_Callback()}.
+
+\begin{enumerate}
+    \item Identificación del pin que generó la interrupción
+    \item Implementación de debounce por software (50ms)
+    \item Parada inmediata del movimiento en curso
+    \item Generación de mensaje de error específico por eje
+    \item Activación del LED de error
+\end{enumerate}
+
+\textbf{Interrupción del Sistema (SysTick):}
 \begin{itemize}
-    \item Buffer circular de 8 elementos
-    \item Procesamiento no bloqueante
-    \item Manejo de overflow automático
+    \item \textbf{Frecuencia}: 1ms (1kHz)
+    \item \textbf{Funcionalidad}: Base de tiempo para \texttt{HAL\_GetTick()}
+    \item \textbf{Uso}: Timeouts, delays no bloqueantes
 \end{itemize}
 
-\textbf{Buffer del Planner:}
+\subsubsection{Algoritmo de Homing}
+
+\textbf{Secuencia de Homing Automático:} implementado en \texttt{performHoming()}.
+
+\begin{enumerate}
+    \item \textbf{Fase 1}: Movimiento rápido hacia finales de carrera
+    \item \textbf{Fase 2}: Retroceso de seguridad (2-4mm según el eje)
+    \item \textbf{Fase 3}: Aproximación lenta y precisa al final de carrera
+    \item \textbf{Fase 4}: Establecimiento de coordenadas de origen (0,0,0)
+\end{enumerate}
+
+\textbf{Verificaciones de Seguridad:}
 \begin{itemize}
-    \item 8 bloques de movimiento lookahead
-    \item Recálculo automático de velocidades
-    \item Optimización de trayectorias suaves
+    \item Verificación de liberación de endstops tras retroceso
+    \item Confirmación de activación tras aproximación final
+    \item Generación de mensajes de error específicos
+    \item Deshabilitación temporal de interrupciones durante homing
 \end{itemize}
 
-\textbf{Buffer de Programa G-code:}
+\subsubsection{Sistema de Gestión de Programas}
+
+\textbf{Almacenamiento de Programas G-code:}
 \begin{itemize}
-    \item Almacenamiento de hasta 100 líneas
-    \item Ejecución secuencial o por pasos
-    \item Control de flujo completo
+    \item \textbf{Capacidad}: 100 líneas máximo (\texttt{MAX\_GCODE\_LINES})
+    \item \textbf{Longitud por línea}: Configurable (\texttt{MAX\_LINE\_LENGTH})
+    \item \textbf{Comandos de control}: \texttt{PROGRAM\_START}, \texttt{PROGRAM\_STOP}, \texttt{PROGRAM\_RUN}
+    \item \textbf{Validación}: Verificación de sintaxis y límites durante almacenamiento
 \end{itemize}
 
-\subsubsection{Configuraciones Principales}
+\textbf{Ejecución Progresiva:} función \texttt{processProgram()}.
 
-\textbf{Parámetros de Máquina (config.h):}
 \begin{itemize}
-    \item \textbf{STEPS\_PER\_MM\_X/Y:} 79 pasos/mm
-    \item \textbf{STEPS\_PER\_MM\_Z:} 3930 pasos/mm
-    \item \textbf{STEP\_DELAY\_US:} 800 mus entre pulsos
-    \item \textbf{DEFAULT\_FEED\_RATE:} 100 mm/min
-    \item \textbf{DEFAULT\_RAPID\_RATE:} 1000 mm/min
-    \item \textbf{DEFAULT\_MAX\_FEED\_RATE:} 2000 mm/min
+    \item Ejecución línea por línea sin bloqueo del sistema principal
+    \item Control de flujo con comandos de pausa y reanudación
+    \item Reporte de progreso y estado de ejecución
+    \item Manejo de errores con detención automática
 \end{itemize}
 
-\textbf{Parámetros del Planner:}
+\subsubsection{Sistema de Comunicaciones}
+
+\textbf{Cola de Transmisión USB:} implementación en \texttt{usbd\_cdc\_if.c}.
+
 \begin{itemize}
-    \item \textbf{PLANNER\_BUFFER\_SIZE:} 8 bloques
-    \item \textbf{JUNCTION\_DEVIATION:} 0.1 mm
-    \item \textbf{ACCELERATION:} 1000 mm/min²
-    \item \textbf{MIN\_SEGMENT\_TIME\_US:} 20000 mus (20ms)
+    \item \textbf{Buffering}: Sistema de colas para evitar pérdida de datos
+    \item \textbf{Procesamiento}: Función \texttt{CDC\_TxQueue\_Process()} no bloqueante
+    \item \textbf{Gestión de flujo}: Control automático de flujo de datos
+    \item \textbf{Robustez}: Manejo de desconexiones y reconexiones USB
 \end{itemize}
 
-Esta implementación representa un controlador CNC completo y profesional con capacidades avanzadas de planning de movimientos, comunicación USB confiable y manejo robusto de errores.
+\textbf{Protocolo de Comunicación:}
+\begin{itemize}
+    \item \textbf{Formato}: Compatible con protocolo GRBL estándar
+    \item \textbf{Respuestas}: 'ok' para comandos exitosos, códigos de error específicos
+    \item \textbf{Reportes}: Estados de máquina, posiciones, configuración
+    \item \textbf{Comandos especiales}: Sistema de help y diagnóstico
+\end{itemize}
+
+
 
 % Etapas de montaje y ensayos realizados
 \section{Etapas de montaje y ensayos realizados}

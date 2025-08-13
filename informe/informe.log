@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.5.12)  13 AUG 2025 01:55
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.5.12)  13 AUG 2025 02:42
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -579,9 +579,15 @@ Package: longtable 2024-10-27 v4.22 Multi-page Table package (DPC)
 \c@LT@tables=\count344
 \c@LT@chunks=\count345
 \LT@p@ftn=\toks43
+) (C:\Users\lauta\AppData\Local\Programs\MiKTeX\tex/latex/multirow\multirow.sty
+Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
+\multirow@colwidth=\skip73
+\multirow@cntb=\count346
+\multirow@dima=\skip74
+\bigstrutjot=\dimen286
 ) (C:\Users\lauta\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdftex.def
 File: l3backend-pdftex.def 2025-04-14 L3 backend support: PDF output (pdfTeX)
-\l__color_backend_stack_int=\count346
+\l__color_backend_stack_int=\count347
 ) (informe.aux
 LaTeX Info: Redefining \. on input line 11.
 LaTeX Info: Redefining \% on input line 11.
@@ -590,38 +596,38 @@ Package babel Info: 'spanish' activates 'spanish' shorthands.
 )
 \openout1 = `informe.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 71.
-LaTeX Font Info:    ... okay on input line 71.
-LaTeX Info: Redefining \. on input line 71.
-LaTeX Info: Redefining \% on input line 71.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 72.
+LaTeX Font Info:    ... okay on input line 72.
+LaTeX Info: Redefining \. on input line 72.
+LaTeX Info: Redefining \% on input line 72.
  (C:\Users\lauta\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count347
-\scratchdimen=\dimen286
+\scratchcounter=\count348
+\scratchdimen=\dimen287
 \scratchbox=\box95
-\nofMPsegments=\count348
-\nofMParguments=\count349
+\nofMPsegments=\count349
+\nofMParguments=\count350
 \everyMPshowfont=\toks44
-\MPscratchCnt=\count350
-\MPscratchDim=\dimen287
-\MPnumerator=\count351
-\makeMPintoPDFobject=\count352
+\MPscratchCnt=\count351
+\MPscratchDim=\dimen288
+\MPnumerator=\count352
+\makeMPintoPDFobject=\count353
 \everyMPtoPDFconversion=\toks45
 ) (C:\Users\lauta\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
@@ -629,7 +635,7 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 48
  (C:\Users\lauta\AppData\Local\Programs\MiKTeX\tex/latex/00miktex\epstopdf-sys.cfg
 File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 ))
-Package hyperref Info: Link coloring ON on input line 71.
+Package hyperref Info: Link coloring ON on input line 72.
  (informe.out) (informe.out)
 \@outlinefile=\write4
 \openout4 = `informe.out'.
@@ -669,11 +675,11 @@ Package hyperref Info: Link coloring ON on input line 71.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-\c@lstlisting=\count353
-<img/fing.jpeg, id=330, 602.25pt x 70.2625pt>
+\c@lstlisting=\count354
+<img/fing.jpeg, id=334, 602.25pt x 70.2625pt>
 File: img/fing.jpeg Graphic file (type jpg)
 <use img/fing.jpeg>
-Package pdftex.def Info: img/fing.jpeg  used on input line 78.
+Package pdftex.def Info: img/fing.jpeg  used on input line 79.
 (pdftex.def)             Requested size: 418.82603pt x 48.86497pt.
 
 
@@ -695,7 +701,7 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.47 ...quemático de la PCB}{13}{subsection.10.1}
+l.48 ...n}{\numberline {10}Anexos}{13}{section.10}
                                                   % [1])
 \tf@toc=\write5
 \openout5 = `informe.toc'.
@@ -710,7 +716,7 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
 [2]
-Overfull \hbox (4.98996pt too wide) in paragraph at lines 136--137
+Overfull \hbox (4.98996pt too wide) in paragraph at lines 137--138
  [] 
  []
 
@@ -750,7 +756,12 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                You might also make \topmargin smaller:
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
-[6]
+[6
+pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.310     \item \textbf
+                       {Enable:} Lógica activa baja (LOW = habilitado)]
 
 
 Package fancyhdr Warning: \headheight is too small (16.9528pt): 
@@ -760,9 +771,6 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
 [7]
-LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <12> not available
-(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 443.
-
 
 
 Package fancyhdr Warning: \headheight is too small (16.9528pt): 
@@ -790,10 +798,10 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
 [10
-pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has been already used, duplicate ignored
+pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.601 
+l.550 
       ]
 
 
@@ -804,17 +812,17 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
 [11
-pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has been already used, duplicate ignored
+pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.644     \item A
+l.593     \item A
                  lgoritmos de aceleración adaptativa]
-Overfull \hbox (18.8694pt too wide) in paragraph at lines 668--670
+Overfull \hbox (18.8694pt too wide) in paragraph at lines 617--619
 [][]$\OT1/cmtt/m/n/12 https : / / www . alldatasheet . es / datasheet-[]pdf / download / 1137270 / MOTIONKING / 17HS3430 . html$[][] 
  []
 
 
-Overfull \hbox (18.8694pt too wide) in paragraph at lines 671--673
+Overfull \hbox (18.8694pt too wide) in paragraph at lines 620--622
 [][]$\OT1/cmtt/m/n/12 https : / / www . alldatasheet . es / datasheet-[]pdf / download / 1137270 / MOTIONKING / 17HS3430 . html$[][] 
  []
 
@@ -828,7 +836,7 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
 [12]
-Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 780.
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 729.
 
 
 
@@ -842,7 +850,7 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 pdfTeX warning (ext4): destination with the same identifier (name{figure.1}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.784 X-
+l.733 X-
         Axis Test:]
 
 
@@ -874,11 +882,11 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 pdfTeX warning (ext4): destination with the same identifier (name{figure.2}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.973     \item C
+l.922     \item C
                  onfigurar parámetros de funcionamiento] (C:\Users\lauta\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstlang1.sty
 File: lstlang1.sty 2024/09/23 1.10c listings language file
 )
-Overfull \hbox (23.33908pt too wide) in paragraph at lines 1025--1035
+Overfull \hbox (23.33908pt too wide) in paragraph at lines 974--984
  [][] 
  []
 
@@ -901,10 +909,10 @@ Package fancyhdr Warning: \headheight is too small (16.9528pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.39722pt}.
 
 [18
-pdfTeX warning (ext4): destination with the same identifier (name{table.4}) has been already used, duplicate ignored
+pdfTeX warning (ext4): destination with the same identifier (name{table.5}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.1071 \end{document}
+l.1020 \end{document}
                      ] 
 enddocument/afterlastpage (AED): lastpage setting LastPage.
 (informe.aux
@@ -916,20 +924,20 @@ LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-04-14>
  ***********
 Package rerunfilecheck Info: File `informe.out' has not changed.
-(rerunfilecheck)             Checksum: A9CF28F139408ED9BA122499D8F97D4D;14806.
+(rerunfilecheck)             Checksum: A665797949B05850C30120295C0CEAEE;14905.
  ) 
 Here is how much of TeX's memory you used:
- 26702 strings out of 469941
- 511941 string characters out of 5469430
- 1204723 words of memory out of 5000000
- 52911 multiletter control sequences out of 15000+600000
+ 26780 strings out of 469941
+ 513257 string characters out of 5469430
+ 1205467 words of memory out of 5000000
+ 52975 multiletter control sequences out of 15000+600000
  634484 words of font info for 67 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  84i,13n,87p,514b,2014s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\lauta\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcbx1200.pk> <C:\Users\lauta\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm1200.pk><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx12.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx8.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr12.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr17.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr6.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti12.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pfb><C:/Users/lauta/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on informe.pdf (19 pages, 291533 bytes).
+Output written on informe.pdf (19 pages, 292452 bytes).
 PDF statistics:
- 702 PDF objects out of 1000 (max. 8388607)
- 179 named destinations out of 1000 (max. 500000)
- 666 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 719 PDF objects out of 1000 (max. 8388607)
+ 189 named destinations out of 1000 (max. 500000)
+ 674 words of extra memory for PDF output out of 10000 (max. 10000000)
 
