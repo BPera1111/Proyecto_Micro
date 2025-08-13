@@ -77,7 +77,7 @@ void arc_move_r(float x_end, float y_end, float r, bool clockwise);
 // ===========================================================================================
 
 // Calcular delay entre pasos según la velocidad de alimentación
-uint32_t calculateStepDelay(float feedRate, float distance_mm);
+uint32_t calculateStepDelay(float feedRate_mm_min, float total_distance_mm, int32_t maxSteps);
 
 // Función de delay de microsegundos
 void delay_us(uint32_t us);
