@@ -539,9 +539,14 @@ void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_def
     moveAxesWithFeedRate(target_x, target_y, target_z, rapidRate, true);
 }
 
-void moveAxesArcCallback(float x, float y, float r, bool clockwise) {
-    // Usar movimiento directo (modo compatibilidad)
-    arc_move_r(x, y, r, clockwise);
+void moveAxesArcCallback(float x, float y, float r, bool clockwise, float feedRate, bool f_defined) {
+    // Actualizar feed rate actual si se especifica
+    if (f_defined && feedRate > 0) {
+        currentFeedRate = feedRate;
+    }
+    
+    // Usar movimiento directo con feed rate actual
+    arc_move_r(x, y, r, clockwise, currentFeedRate);
 }
 
 // Callback específico para movimiento lineal G1 con feed rate 

@@ -47,30 +47,32 @@ void delay_us(uint32_t us) {
 }
 
 /**
-  * @brief  Calcula el delay entre pasos basado en el feed rate
-  * @param  feedRate: Velocidad en mm/min
-  * @param  distance_mm: Distancia total del movimiento en mm
-  * @retval Delay en microsegundos entre pasos
+  * @brief  Calcula el delay entre "ticks" del interpolador según feed y distancia
+  * @param  feedRate_mm_min: Velocidad en mm/min (G0/G1)
+  * @param  total_distance_mm: Distancia del segmento en mm
+  * @param  maxSteps: Máximo de pasos entre ejes (Bresenham base)
+  * @retval Delay en microsegundos entre ticks
   */
-uint32_t calculateStepDelay(float feedRate, float distance_mm) {
-    if (feedRate <= 0) return STEP_DELAY_US; // Usar delay por defecto si es inválido
-    
-    // Calcular pasos por segundo para el eje dominante
-    
-    // Usar el eje con mayor resolución (Z) para el cálculo más conservador
-    float steps_per_mm = STEPS_PER_MM_Z; // El más alto: 3930 steps/mm
-    
-    // Calcular pasos por segundo
-    float steps_per_sec = feedRate * steps_per_mm;
-    
-    // Calcular delay en microsegundos entre pasos
-    if (steps_per_sec <= 0) return STEP_DELAY_US;
-    
-    uint32_t delay_us = (uint32_t)(1000000.0 / steps_per_sec);
-    
-    // Limitar delay mínimo para evitar problemas de timing
-    if (delay_us < 200) delay_us = 200; // Mínimo 200us = 5000 pasos/segundo máximo
-    
+uint32_t calculateStepDelay(float feedRate_mm_min, float total_distance_mm, int32_t maxSteps) {
+    if (feedRate_mm_min <= 0.0f || total_distance_mm <= 0.0f || maxSteps <= 0) {
+        return STEP_DELAY_US;  // fallback
+    }
+
+    // mm/min -> mm/s
+    float v_mm_s = feedRate_mm_min;
+
+    // Tiempo total para recorrer el segmento a ese feed
+    float total_time_s = total_distance_mm / v_mm_s;   // s
+
+    // Tiempo entre "ticks" (cada tick puede disparar 0..3 pasos según Bresenham)
+    float t_step_s = total_time_s / (float)maxSteps;   // s/tick
+
+    // Convertir a microsegundos
+    uint32_t delay_us = (uint32_t)(t_step_s * 1000000.0f);
+
+    // Limitar si querés un mínimo por hardware/temporizador
+    if (delay_us < 200) delay_us = 200;
+
     return delay_us;
 }
 
@@ -233,9 +235,16 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     deltaX = (deltaX < 0) ? -deltaX : deltaX;
     deltaY = (deltaY < 0) ? -deltaY : deltaY;
     deltaZ = (deltaZ < 0) ? -deltaZ : deltaZ;
+
+        // Algoritmo de interpolación lineal 3D (Bresenham modificado)
+    int32_t maxSteps = deltaX;
+    if (deltaY > maxSteps) maxSteps = deltaY;
+    if (deltaZ > maxSteps) maxSteps = deltaZ;
+    
+    if (maxSteps == 0) return; // No hay movimiento
     
     // Calcular delay basado en feed rate
-    uint32_t step_delay = calculateStepDelay(effective_feedrate, total_distance);
+    uint32_t step_delay = calculateStepDelay(effective_feedrate, total_distance, maxSteps);
     
     // Mostrar información del movimiento con validación de valores
     // float display_x = !isnan(x) ? x : (currentX / (float)STEPS_PER_MM_X);
@@ -265,12 +274,6 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     // sendUSBText(outputBuffer);
     // memset(outputBuffer, 0, OUTPUT_BUFFER_SIZE);
     
-    // Algoritmo de interpolación lineal 3D (Bresenham modificado)
-    int32_t maxSteps = deltaX;
-    if (deltaY > maxSteps) maxSteps = deltaY;
-    if (deltaZ > maxSteps) maxSteps = deltaZ;
-    
-    if (maxSteps == 0) return; // No hay movimiento
     
     // Variables para el algoritmo de Bresenham 3D
     int32_t errorX = maxSteps / 2;
@@ -280,37 +283,18 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     
     // Ejecutar pasos interpolados con feed rate controlado
     for (int32_t step = 0; step < maxSteps; step++) {
-        bool stepX = false, stepY = false, stepZ = false;
-        
-        // Algoritmo de Bresenham para X
-        errorX += deltaX;
-        if (errorX >= maxSteps) {
-            errorX -= maxSteps;
-            stepX = true;
-        }
-        
-        // Algoritmo de Bresenham para Y
-        errorY += deltaY;
-        if (errorY >= maxSteps) {
-            errorY -= maxSteps;
-            stepY = true;
-        }
-        
-        // Algoritmo de Bresenham para Z
-        errorZ += deltaZ;
-        if (errorZ >= maxSteps) {
-            errorZ -= maxSteps;
-            stepZ = true;
-        }
-        
-        // Ejecutar pasos simultáneamente
-        if (stepX) X_stepOnce();
-        if (stepY) Y_stepOnce();
-        if (stepZ) Z_stepOnce();
-        
-        // Delay controlado por feed rate
-        delay_us(step_delay);
-    }
+    bool stepX = false, stepY = false, stepZ = false;
+
+    errorX += deltaX; if (errorX >= maxSteps) { errorX -= maxSteps; stepX = true; }
+    errorY += deltaY; if (errorY >= maxSteps) { errorY -= maxSteps; stepY = true; }
+    errorZ += deltaZ; if (errorZ >= maxSteps) { errorZ -= maxSteps; stepZ = true; }
+
+    if (stepX) X_stepOnce();
+    if (stepY) Y_stepOnce();
+    if (stepZ) Z_stepOnce();
+
+    delay_us(step_delay);
+}
     
     
     // Actualizar posiciones actuales
@@ -328,9 +312,10 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
   * @param  x_end, y_end: Coordenadas finales del arco en mm
   * @param  r: Radio del arco en mm
   * @param  clockwise: Dirección del arco (1 = horario, 0 = antihorario)
+  * @param  feedRate: Velocidad de alimentación en mm/s
   * @retval None
   */
-void arc_move_r(float x_end, float y_end, float r, bool clockwise) {
+void arc_move_r(float x_end, float y_end, float r, bool clockwise, float feedRate) {
     float x0 = currentX;
     float y0 = currentY;
     float x1 = x_end * STEPS_PER_MM_X;
@@ -383,7 +368,7 @@ void arc_move_r(float x_end, float y_end, float r, bool clockwise) {
         float angle = start_angle + total_angle * ((float)i / SEGMENTS);
         float x = cx + r * cos(angle);
         float y = cy + r * sin(angle);
-        moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
+        moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, feedRate, false);
     }
 }
 

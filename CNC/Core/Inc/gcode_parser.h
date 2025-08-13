@@ -113,7 +113,7 @@ void performHoming(void);
 
 void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
 void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined);
-void moveAxesArcCallback(float x, float y, float r, bool clockwise);
+void moveAxesArcCallback(float x, float y, float r, bool clockwise, float feedRate, bool f_defined);
 
 // Variables externas que el parser necesita acceder
 extern int32_t currentX, currentY, currentZ;

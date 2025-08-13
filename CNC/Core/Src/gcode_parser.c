@@ -41,7 +41,7 @@ extern void disableSteppers(void);
 // Funciones de callback con feed rate
 extern void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
 extern void moveAxesLinearCallback(float x, float y, float z, float feedRate, bool x_defined, bool y_defined, bool z_defined, bool f_defined);
-extern void moveAxesArcCallback(float x, float y, float r, bool clockwise);
+extern void moveAxesArcCallback(float x, float y, float r, bool clockwise, float feedRate, bool f_defined);
 
 /* Funciones privadas -------------------------------------------------------*/
 
@@ -420,12 +420,12 @@ uint8_t gc_execute_block(void) {
             
         case MOTION_MODE_CW_ARC:   // G2 - Arco horario
             if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.r_defined) {
-                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.r, 1);  // 1 para sentido horario
+                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.r, 1, gc_block.values.f, gc_block.values.f_defined);  // 1 para sentido horario
                 break;
             }
         case MOTION_MODE_CCW_ARC:  // G3 - Arco antihorario
             if (gc_block.values.x_defined || gc_block.values.y_defined || gc_block.values.r_defined) {
-                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.r, 0);  // 0 para sentido antihorario
+                moveAxesArcCallback(gc_block.values.x, gc_block.values.y, gc_block.values.r, 0, gc_block.values.f, gc_block.values.f_defined);  // 0 para sentido antihorario
                 break;
             }
             break;
