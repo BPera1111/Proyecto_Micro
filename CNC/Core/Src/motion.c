@@ -312,9 +312,10 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
   * @param  x_end, y_end: Coordenadas finales del arco en mm
   * @param  r: Radio del arco en mm
   * @param  clockwise: Dirección del arco (1 = horario, 0 = antihorario)
+  * @param  feedRate: Velocidad de alimentación en mm/s
   * @retval None
   */
-void arc_move_r(float x_end, float y_end, float r, bool clockwise) {
+void arc_move_r(float x_end, float y_end, float r, bool clockwise, float feedRate) {
     float x0 = currentX;
     float y0 = currentY;
     float x1 = x_end * STEPS_PER_MM_X;
@@ -367,7 +368,7 @@ void arc_move_r(float x_end, float y_end, float r, bool clockwise) {
         float angle = start_angle + total_angle * ((float)i / SEGMENTS);
         float x = cx + r * cos(angle);
         float y = cy + r * sin(angle);
-        moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, rapidRate, true);
+        moveAxesWithFeedRate(x / STEPS_PER_MM_X, y / STEPS_PER_MM_Y, currentZ / STEPS_PER_MM_Z, feedRate, false);
     }
 }
 

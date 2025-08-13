@@ -1,9 +1,9 @@
 ../Core/Src/gcode_parser.c:58:9:check_soft_limits	144	static
 ../Core/Src/gcode_parser.c:98:6:report_machine_limits	248	static
 ../Core/Src/gcode_parser.c:109:6:gc_init	0	static
-../Core/Src/gcode_parser.c:127:6:gc_clear_block	8	static
-../Core/Src/gcode_parser.c:159:6:read_float	24	static
-../Core/Src/gcode_parser.c:205:9:gc_parse_line	32	static
-../Core/Src/gcode_parser.c:352:9:gc_execute_block	144	static
-../Core/Src/gcode_parser.c:463:9:gc_execute_line	8	static
-../Core/Src/gcode_parser.c:493:6:report_status_message	40	static
+../Core/Src/gcode_parser.c:121:6:gc_clear_block	8	static
+../Core/Src/gcode_parser.c:151:6:read_float	24	static
+../Core/Src/gcode_parser.c:197:9:gc_parse_line	32	static
+../Core/Src/gcode_parser.c:344:9:gc_execute_block	144	static
+../Core/Src/gcode_parser.c:455:9:gc_execute_line	8	static
+../Core/Src/gcode_parser.c:485:6:report_status_message	40	static

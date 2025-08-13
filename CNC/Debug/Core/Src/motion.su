@@ -9,7 +9,7 @@
 ../Core/Src/motion.c:170:6:enableSteppers	8	static
 ../Core/Src/motion.c:181:6:disableSteppers	8	static
 ../Core/Src/motion.c:199:6:moveAxesWithFeedRate	64	static
-../Core/Src/motion.c:317:6:arc_move_r	80	static
-../Core/Src/motion.c:383:6:getCurrentPositionMM	16	static
-../Core/Src/motion.c:394:6:setCurrentPosition	0	static
-../Core/Src/motion.c:405:6:setCurrentPositionMM	16	static
+../Core/Src/motion.c:318:6:arc_move_r	88	static
+../Core/Src/motion.c:384:6:getCurrentPositionMM	16	static
+../Core/Src/motion.c:395:6:setCurrentPosition	0	static
+../Core/Src/motion.c:406:6:setCurrentPositionMM	16	static
