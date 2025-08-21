@@ -1,0 +1,17 @@
+# Dependencias para ESP32 UART Bridge - Cliente Python
+# Instala con: pip install -r requirements.txt
+
+# Para comunicación HTTP con ESP32
+requests>=2.25.0
+
+# Para comunicación WebSocket
+websockets>=10.0
+
+# Para interfaz mejorada (opcional)
+colorama>=0.4.4
+
+# Para procesamiento JSON
+# json (incluido en Python estándar)
+
+# Para comunicación asíncrona
+# asyncio (incluido en Python 3.7+)

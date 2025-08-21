@@ -215,6 +215,8 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     
     // Seleccionar velocidad según el tipo de movimiento
     float effective_feedrate = isRapid ? rapidRate : feedRate;
+
+
     
     // Limitar velocidad máxima
     if (effective_feedrate > maxFeedRate) {
@@ -280,7 +282,11 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     int32_t errorY = maxSteps / 2;
     int32_t errorZ = maxSteps / 2;
     
-    
+    // // Actualizar posiciones actuales
+    // currentX = targetX;
+    // currentY = targetY;
+    // currentZ = targetZ;
+
     // Ejecutar pasos interpolados con feed rate controlado
     for (int32_t step = 0; step < maxSteps; step++) {
     bool stepX = false, stepY = false, stepZ = false;
@@ -289,18 +295,24 @@ void moveAxesWithFeedRate(float x, float y, float z, float feedRate, bool isRapi
     errorY += deltaY; if (errorY >= maxSteps) { errorY -= maxSteps; stepY = true; }
     errorZ += deltaZ; if (errorZ >= maxSteps) { errorZ -= maxSteps; stepZ = true; }
 
-    if (stepX) X_stepOnce();
-    if (stepY) Y_stepOnce();
-    if (stepZ) Z_stepOnce();
+    if (stepX){
+      X_stepOnce();
+      currentX += (dirX ? 1 : -1);
+    }
+    if (stepY){
+      Y_stepOnce();
+      currentY += (dirY ? 1 : -1);
+    }
+    if (stepZ){
+      Z_stepOnce();
+      currentZ += (dirZ ? 1 : -1);
+    }
 
     delay_us(step_delay);
 }
     
     
-    // Actualizar posiciones actuales
-    currentX = targetX;
-    currentY = targetY;
-    currentZ = targetZ;
+
 }
 
 // ===========================================================================================
