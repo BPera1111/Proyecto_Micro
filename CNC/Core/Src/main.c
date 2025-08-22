@@ -45,8 +45,9 @@
 
 // Función auxiliar para envío USB según el método configurado
 void sendUSBText(const char* message) {
-    uint16_t len = strlen(message);
-    CDC_Transmit_Queued((uint8_t*)message, len);
+    //uint16_t len = strlen(message);
+    //CDC_Transmit_Queued((uint8_t*)message, len);
+    HAL_UART_Transmit(&huart2, (uint8_t*)message, strlen(message), HAL_MAX_DELAY);
 }
 
 /* USER CODE END PD */

@@ -1,0 +1,5 @@
+\babel@toc {spanish}{}\relax 
+\beamer@sectionintoc {1}{Introducción}{2}{0}{1}
+\beamer@sectionintoc {2}{Esquema Tecnológico}{3}{0}{2}
+\beamer@sectionintoc {3}{Diagrama de flujo}{4}{0}{3}
+\beamer@sectionintoc {4}{Programacion}{5}{0}{4}
