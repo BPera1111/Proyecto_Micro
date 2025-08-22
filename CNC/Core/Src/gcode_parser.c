@@ -26,17 +26,20 @@ gc_modal_t gc_state_modal;        // Estado modal persistente
 
 /* Variables externas -------------------------------------------------------*/
 extern int32_t currentX, currentY, currentZ;
+extern char outputBuffer[];  // Buffer compartido definido en main.c
+
+/* Funciones externas -------------------------------------------------------*/
+extern void performHoming(void);
+extern void enableSteppers(void);
+extern void disableSteppers(void);
+extern bool isEndstopPressed(char axis);
+extern void sendUSBText(const char* message);
+extern void showConfiguration(void);
 
 /* Definiciones de constantes -----------------------------------------------*/
 #define STEPS_PER_MM_X 79
 #define STEPS_PER_MM_Y 79
 #define STEPS_PER_MM_Z 3930
-
-/* Funciones externas -------------------------------------------------------*/
-extern void performHoming(void);
-//extern void moveAxes(float x, float y, float z);
-extern void enableSteppers(void);
-extern void disableSteppers(void);
 
 // Funciones de callback con feed rate
 extern void moveAxesRapidCallback(float x, float y, float z, bool x_defined, bool y_defined, bool z_defined);
@@ -61,9 +64,13 @@ uint8_t check_soft_limits(float target_x, float target_y, float target_z, bool x
     // Verificar límites para eje X
     if (x_defined) {
         if (target_x < MIN_TRAVEL_X || target_x > MAX_TRAVEL_X) {
-            sprintf(msg, "Error: X=%.2f fuera de límites [%.1f, %.1f]\r\n", 
-                   target_x, MIN_TRAVEL_X, MAX_TRAVEL_X);
-            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            int target_x_int = (int)target_x;
+            int target_x_dec = (int)((target_x - target_x_int) * 100);
+            int min_x = (int)MIN_TRAVEL_X;
+            int max_x = (int)MAX_TRAVEL_X;
+            sprintf(msg, "Error: X=%d.%02d fuera de límites [%d, %d]\r\n", 
+                   target_x_int, abs(target_x_dec), min_x, max_x);
+            sendUSBText(msg);
             return STATUS_SOFT_LIMIT_ERROR;
         }
     }
@@ -71,9 +78,13 @@ uint8_t check_soft_limits(float target_x, float target_y, float target_z, bool x
     // Verificar límites para eje Y
     if (y_defined) {
         if (target_y < MIN_TRAVEL_Y || target_y > MAX_TRAVEL_Y) {
-            sprintf(msg, "Error: Y=%.2f fuera de límites [%.1f, %.1f]\r\n", 
-                   target_y, MIN_TRAVEL_Y, MAX_TRAVEL_Y);
-            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            int target_y_int = (int)target_y;
+            int target_y_dec = (int)((target_y - target_y_int) * 100);
+            int min_y = (int)MIN_TRAVEL_Y;
+            int max_y = (int)MAX_TRAVEL_Y;
+            sprintf(msg, "Error: Y=%d.%02d fuera de límites [%d, %d]\r\n", 
+                   target_y_int, abs(target_y_dec), min_y, max_y);
+            sendUSBText(msg);
             return STATUS_SOFT_LIMIT_ERROR;
         }
     }
@@ -81,9 +92,13 @@ uint8_t check_soft_limits(float target_x, float target_y, float target_z, bool x
     // Verificar límites para eje Z
     if (z_defined) {
         if (target_z < MIN_TRAVEL_Z || target_z > MAX_TRAVEL_Z) {
-            sprintf(msg, "Error: Z=%.2f fuera de límites [%.1f, %.1f]\r\n", 
-                   target_z, MIN_TRAVEL_Z, MAX_TRAVEL_Z);
-            CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+            int target_z_int = (int)target_z;
+            int target_z_dec = (int)((target_z - target_z_int) * 100);
+            int min_z = (int)MIN_TRAVEL_Z;
+            int max_z = (int)MAX_TRAVEL_Z;
+            sprintf(msg, "Error: Z=%d.%02d fuera de límites [%d, %d]\r\n", 
+                   target_z_int, abs(target_z_dec), min_z, max_z);
+            sendUSBText(msg);
             return STATUS_SOFT_LIMIT_ERROR;
         }
     }
@@ -96,10 +111,22 @@ uint8_t check_soft_limits(float target_x, float target_y, float target_z, bool x
   * @retval None
   */
 void report_machine_limits(void) {
-    char msg[200];
-    sprintf(msg, "Límites de la máquina:\r\nX: [%.1f, %.1f] mm\r\nY: [%.1f, %.1f] mm\r\nZ: [%.1f, %.1f] mm\r\n",
-           MIN_TRAVEL_X, MAX_TRAVEL_X, MIN_TRAVEL_Y, MAX_TRAVEL_Y, MIN_TRAVEL_Z, MAX_TRAVEL_Z);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    sendUSBText("Límites de la máquina:\r\n");
+    
+    // Convertir a enteros para evitar problemas con printf float
+    int min_x = (int)MIN_TRAVEL_X;
+    int max_x = (int)MAX_TRAVEL_X;
+    int min_y = (int)MIN_TRAVEL_Y;
+    int max_y = (int)MAX_TRAVEL_Y;
+    int min_z = (int)MIN_TRAVEL_Z;
+    int max_z = (int)MAX_TRAVEL_Z;
+    
+    sprintf(outputBuffer, "X: [%d, %d] mm\r\n", min_x, max_x);
+    sendUSBText(outputBuffer);
+    sprintf(outputBuffer, "Y: [%d, %d] mm\r\n", min_y, max_y);
+    sendUSBText(outputBuffer);
+    sprintf(outputBuffer, "Z: [%d, %d] mm\r\n", min_z, max_z);
+    sendUSBText(outputBuffer);
 }
 
 /**
@@ -198,7 +225,7 @@ uint8_t gc_parse_line(char *line) {
     uint8_t char_counter = 0;
     unsigned char letter;
     float value;
-    uint8_t int_value = 0;
+    uint16_t int_value = 0;
     uint16_t command_words = 0;   // Tracking de comandos para detectar conflictos
     uint8_t word_bit = 0;
     
@@ -267,7 +294,7 @@ uint8_t gc_parse_line(char *line) {
                 
             case 'M':
                 // Validar rango de comandos M
-                if (int_value > 99) return STATUS_GCODE_UNSUPPORTED_COMMAND;
+                if (int_value > 999) return STATUS_GCODE_UNSUPPORTED_COMMAND;
                 
                 switch (int_value) {
                     case 0: case 2:
@@ -286,6 +313,22 @@ uint8_t gc_parse_line(char *line) {
                     case 84:  // M84 - Disable steppers (alias de M18)
                         word_bit = MODAL_GROUP_G0;  // Comando no modal
                         gc_block.non_modal_command = 18;
+                        break;
+                    case 114: // M114 - Report current position
+                        word_bit = MODAL_GROUP_G0;  // Comando no modal
+                        gc_block.non_modal_command = 114;
+                        break;
+                    case 119: // M119 - Report endstop status
+                        word_bit = MODAL_GROUP_G0;  // Comando no modal
+                        gc_block.non_modal_command = 119;
+                        break;
+                    case 503: // M503 - Report settings
+                        word_bit = MODAL_GROUP_G0;  // Comando no modal
+                        gc_block.non_modal_command = 503;
+                        break;
+                    case 505: // M505 - Report machine limits
+                        word_bit = MODAL_GROUP_G0;  // Comando no modal
+                        gc_block.non_modal_command = 505;
                         break;
                     default:
                         return STATUS_GCODE_UNSUPPORTED_COMMAND;
@@ -384,6 +427,45 @@ uint8_t gc_execute_block(void) {
         case 18: // M18/M84 - Disable steppers
             CDC_Transmit_FS((uint8_t*)"Motores deshabilitados\r\n", 24);
             disableSteppers();
+            break;
+            
+        case 114: // M114 - Report current position
+            {
+                float xPos = currentX / (float)STEPS_PER_MM_X;
+                float yPos = currentY / (float)STEPS_PER_MM_Y;
+                float zPos = currentZ / (float)STEPS_PER_MM_Z;
+                
+                // Convertir a enteros para evitar problemas con printf float
+                int x_int = (int)xPos;
+                int x_dec = (int)((xPos - x_int) * 100);
+                int y_int = (int)yPos;
+                int y_dec = (int)((yPos - y_int) * 100);
+                int z_int = (int)zPos;
+                int z_dec = (int)((zPos - z_int) * 100);
+
+                snprintf(outputBuffer, 200, "X:%d.%02d Y:%d.%02d Z:%d.%02d\r\n", 
+                       x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
+                sendUSBText(outputBuffer);
+            }
+            break;
+            
+        case 119: // M119 - Report endstop status  
+            snprintf(outputBuffer, 200, "Estado fines de carrera:\r\n");
+            sendUSBText(outputBuffer);
+            snprintf(outputBuffer, 200, "X_MIN: %s\r\n", isEndstopPressed('X') ? "PRESSED" : "open");
+            sendUSBText(outputBuffer);
+            snprintf(outputBuffer, 200, "Y_MIN: %s\r\n", isEndstopPressed('Y') ? "PRESSED" : "open");
+            sendUSBText(outputBuffer);
+            snprintf(outputBuffer, 200, "Z_MIN: %s\r\n", isEndstopPressed('Z') ? "PRESSED" : "open");
+            sendUSBText(outputBuffer);
+            break;
+            
+        case 503: // M503 - Report settings
+            showConfiguration();
+            break;
+            
+        case 505: // M505 - Report machine limits
+            report_machine_limits();
             break;
     }
     

@@ -90,7 +90,7 @@ typedef struct {
 typedef struct {
     gc_modal_t modal;       // Estados modales actuales
     gc_values_t values;     // Valores de la línea actual
-    uint8_t non_modal_command; // Comando no modal (G4, G28, etc.)
+    uint16_t non_modal_command; // Comando no modal (G4, G28, M114, M503, etc.)
 } gc_block_t;
 
 /* Variables globales exportadas -------------------------------------------*/

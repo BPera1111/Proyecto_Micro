@@ -158,10 +158,7 @@ int main(void)
     // Inicialización similar al setup() de Arduino
     setup();
 
-    // Led de encendido inicial
-    HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_SET);  // Encender
-    // Envío inicial usando cola
-    CDC_Transmit_Queued((uint8_t*)"G-code listo\r\n", 14); 
+
 
     #if DEBUG_MESSAGES
     // Mensaje adicional de debug
@@ -174,7 +171,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-
+    // Led de encendido inicial
+    HAL_GPIO_WritePin(GPIOB, LED_CHECK, GPIO_PIN_SET);  // Encender
+    // Envío inicial usando cola
+    CDC_Transmit_Queued((uint8_t*)"G-code listo\r\n", 14); 
+    
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -393,46 +394,6 @@ void processGcode(const char* command) {
     
     uint8_t status = gc_execute_line(line_copy);
     
-    // Enviar respuesta según el estándar GRBL
-    if (status == STATUS_OK) {
-        // Verificar si es un comando que requiere respuesta especial
-        if (strncmp(command, "M114", 4) == 0) {
-            // M114 - Reportar posición actual
-            float xPos = currentX / (float)STEPS_PER_MM_X;
-            float yPos = currentY / (float)STEPS_PER_MM_Y;
-            float zPos = currentZ / (float)STEPS_PER_MM_Z;
-            
-            // Convertir a enteros para evitar problemas con printf float
-            int x_int = (int)xPos;
-            int x_dec = (int)((xPos - x_int) * 100);
-            int y_int = (int)yPos;
-            int y_dec = (int)((yPos - y_int) * 100);
-            int z_int = (int)zPos;
-            int z_dec = (int)((zPos - z_int) * 100);
-
-            snprintf(outputBuffer, sizeof(outputBuffer), "X:%d.%02d Y:%d.%02d Z:%d.%02d\r\n", 
-                   x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
-            sendUSBText(outputBuffer);
-
-        } else if (strncmp(command, "M503", 4) == 0) {
-            // M503 - Mostrar configuración
-            showConfiguration();
-        } else if (strncmp(command, "M505", 4) == 0) {
-            // M505 - Mostrar límites de la máquina
-            report_machine_limits();
-        } else if (strncmp(command, "M119", 4) == 0) {
-            // M119 - Reportar estado de fines de carrera
-            sprintf(outputBuffer, "Estado fines de carrera:\r\n");
-            sendUSBText(outputBuffer);
-            sprintf(outputBuffer, "X_MIN: %s\r\n", isEndstopPressed('X') ? "PRESSED" : "open");
-            sendUSBText(outputBuffer);
-            sprintf(outputBuffer, "Y_MIN: %s\r\n", isEndstopPressed('Y') ? "PRESSED" : "open");
-            sendUSBText(outputBuffer);
-            sprintf(outputBuffer, "Z_MIN: %s\r\n", isEndstopPressed('Z') ? "PRESSED" : "open");
-            sendUSBText(outputBuffer);
-            memset(outputBuffer, 0, sizeof(outputBuffer));
-        }
-    }
     
     // Enviar respuesta final usando el parser modular
     report_status_message(status);
@@ -487,7 +448,7 @@ void loop(void) {
             // Debug: confirmar que llegó el comando (buffer más grande para evitar warning)
             sprintf(outputBuffer, ">>> [%s]\r\n", usbBuffer);
             sendUSBText(outputBuffer);
-            memset(outputBuffer, 0, sizeof(outputBuffer));
+            
             #endif
             
             processGcode(usbBuffer);
@@ -570,39 +531,39 @@ void showConfiguration(void) {
 
     sprintf(outputBuffer, "Steps per mm X: %d\r\n", STEPS_PER_MM_X);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     sprintf(outputBuffer, "Steps per mm Y: %d\r\n", STEPS_PER_MM_Y);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     sprintf(outputBuffer, "Steps per mm Z: %d\r\n", STEPS_PER_MM_Z);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     sprintf(outputBuffer, "Step delay: %d us\r\n", STEP_DELAY_US);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     // Convertir feed rate actual a enteros
     int feed_int = (int)currentFeedRate;
     int feed_dec = (int)((currentFeedRate - feed_int) * 10);
     sprintf(outputBuffer, "Feed rate actual: %d.%d mm/min\r\n", feed_int, feed_dec);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Convertir velocidades a enteros para mostrar
     int rapid_int = (int)rapidRate;
     int rapid_dec = (int)((rapidRate - rapid_int) * 10);
     sprintf(outputBuffer, "Velocidad rápida (G0): %d.%d mm/min\r\n", rapid_int, rapid_dec);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     int max_int = (int)maxFeedRate;
     int max_dec = (int)((maxFeedRate - max_int) * 10);
     sprintf(outputBuffer, "Velocidad máxima: %d.%d mm/min\r\n", max_int, max_dec);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Mostrar posición actual
     float xPos = currentX / (float)STEPS_PER_MM_X;
@@ -620,7 +581,7 @@ void showConfiguration(void) {
     sprintf(outputBuffer, "Posición actual: X%d.%02d Y%d.%02d Z%d.%02d mm\r\n",
            x_int, abs(x_dec), y_int, abs(y_dec), z_int, abs(z_dec));
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     sendUSBText("=== FIN CONFIGURACIÓN ===\r\n");
 }
 
@@ -648,12 +609,12 @@ void performHoming(void) {
     // FASE 1: Movimiento rápido hacia los finales de carrera
     sprintf(outputBuffer, "Fase 1: Buscando finales de carrera...\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Homing del eje X
     sprintf(outputBuffer, "Homing eje X...\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Mover hacia el final de carrera X (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, X_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
@@ -673,7 +634,7 @@ void performHoming(void) {
     if (isEndstopPressed('X')) {
         sprintf(outputBuffer, "Error: Fin de carrera X no se liberó después de alejarse 2mm\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
@@ -691,19 +652,19 @@ void performHoming(void) {
     if (!isEndstopPressed('X')) {
         sprintf(outputBuffer, "Error: Fin de carrera X no está presionado después de regresar 4mm\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     currentX = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje X en posición home\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
 
     // Homing del eje Y
     sprintf(outputBuffer, "Homing eje Y...\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Mover hacia el final de carrera Y (dirección negativa)
     HAL_GPIO_WritePin(GPIOB, Y_DIR_PIN, GPIO_PIN_RESET); // Dirección negativa
@@ -723,7 +684,7 @@ void performHoming(void) {
     if (isEndstopPressed('Y')) {
         sprintf(outputBuffer, "Error: Fin de carrera Y no se liberó después de alejarse 4mm\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
@@ -741,20 +702,20 @@ void performHoming(void) {
     if (!isEndstopPressed('Y')) {
         sprintf(outputBuffer, "Error: Fin de carrera Y no está presionado después de regresar 4mm\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
     currentY = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje Y en posición home\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     CDC_TxQueue_Process();
     // Homing del eje Z
     sprintf(outputBuffer, "Homing eje Z...\r\n");
     sendUSBText(outputBuffer);CDC_TxQueue_Process();
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Mover hacia el final de carrera Z (dirección negativa)
     HAL_GPIO_WritePin(GPIOA, Z_DIR_PIN, GPIO_PIN_SET); // Dirección negativa
@@ -774,7 +735,7 @@ void performHoming(void) {
     if (isEndstopPressed('Z')) {
         sprintf(outputBuffer, "Error: Fin de carrera Z no se liberó después de alejarse 2mm\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
@@ -792,19 +753,19 @@ void performHoming(void) {
     if (!isEndstopPressed('Z')) {
         sprintf(outputBuffer, "Error: Fin de carrera Z no está presionado después de regresar 2mm\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
     currentZ = 0; // Establecer posición home
     sprintf(outputBuffer, "Eje Z en posición home\r\n");
     sendUSBText(outputBuffer);CDC_TxQueue_Process();
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     // Mensaje final
     sprintf(outputBuffer, "Homing completado. Todos los ejes en posición home.\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     CDC_TxQueue_Process();
 
@@ -846,7 +807,7 @@ void stopProgramStorage(void) {
         isProgramLoaded = true;
         sprintf(outputBuffer, "Programa cargado: %d lineas almacenadas\r\n", programLineCount);
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         sendUSBText("Use 'PROGRAM_RUN' para ejecutar o 'PROGRAM_INFO' para ver detalles\r\n");
     } else {
         sendUSBText("No se almacenaron lineas\r\n");
@@ -952,7 +913,7 @@ void runProgram(void) {
     if (!isProgramLoaded || programLineCount == 0) {
         sprintf(outputBuffer, "error: No hay programa cargado\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
@@ -961,7 +922,7 @@ void runProgram(void) {
 
     sprintf(outputBuffer, "Iniciando ejecucion del programa (%d lineas)\r\n", programLineCount);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     sendUSBText("Programa en ejecucion. Use PROGRAM_PAUSE para pausar.\r\n");
 }
@@ -974,21 +935,21 @@ void runNextLine(void) {
     if (!isProgramLoaded || programLineCount == 0) {
         sprintf(outputBuffer, "error: No hay programa cargado\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         return;
     }
     
     if (currentExecutingLine >= programLineCount) {
         sprintf(outputBuffer, "Programa completado\r\n");
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         isProgramRunning = false;
         return;
     }
 
     sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     // Ejecutar el comando
     char temp_command[MAX_LINE_LENGTH];
     strncpy(temp_command, gcodeProgram[currentExecutingLine], MAX_LINE_LENGTH - 1);
@@ -1001,7 +962,7 @@ void runNextLine(void) {
     } else {
         sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         isProgramRunning = false;
     }
 }
@@ -1014,10 +975,10 @@ void pauseProgram(void) {
     isProgramRunning = false;
     sprintf(outputBuffer, "Programa pausado\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     sprintf(outputBuffer, "ok\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 }
 
 /**
@@ -1029,10 +990,10 @@ void stopProgram(void) {
     currentExecutingLine = 0;
     sprintf(outputBuffer, "Programa detenido\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     sprintf(outputBuffer, "ok\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 }
 
 /**
@@ -1084,19 +1045,19 @@ void showQueueStatus(void) {
 
     sprintf(outputBuffer, "\r\n=== ESTADO COLA USB CDC ===\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     sprintf(outputBuffer, "Mensajes en cola: %d/%d\r\n", CDC_TxQueue_GetCount(), 10);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     sprintf(outputBuffer, "Cola llena: %s\r\n", CDC_TxQueue_IsFull() ? "SI" : "NO");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
 
     sprintf(outputBuffer, "Método transmisión: ");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     switch (USB_TRANSMIT_METHOD) {
         case USB_METHOD_DIRECT:
@@ -1123,34 +1084,34 @@ void showQueueStatus(void) {
 void showProgramStatus(void) {
     sprintf(outputBuffer, "\r\n=== ESTADO PROGRAMA G-CODE ===\r\n");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     sprintf(outputBuffer, "Programa cargado: %s\r\n", isProgramLoaded ? "SI" : "NO");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     sprintf(outputBuffer, "Programa ejecutándose: %s\r\n", isProgramRunning ? "SI" : "NO");
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     if (isProgramLoaded) {
         sprintf(outputBuffer, "Total de líneas: %d\r\n", programLineCount);
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         
         sprintf(outputBuffer, "Línea actual: %d\r\n", currentExecutingLine + 1);
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         
         int progress = (programLineCount > 0) ? (currentExecutingLine * 100) / programLineCount : 0;
         sprintf(outputBuffer, "Progreso: %d%%\r\n", progress);
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         
         if (isProgramRunning && currentExecutingLine < programLineCount) {
             sprintf(outputBuffer, "Próxima línea: %s\r\n", gcodeProgram[currentExecutingLine]);
             sendUSBText(outputBuffer);
-            memset(outputBuffer, 0, sizeof(outputBuffer));
+            
         }
     }
     
@@ -1173,7 +1134,7 @@ void processProgram(void) {
        
             sprintf(outputBuffer, "Programa completado exitosamente\r\n");
             sendUSBText(outputBuffer);
-            memset(outputBuffer, 0, sizeof(outputBuffer));
+            
             isProgramRunning = false;
         
         return;
@@ -1182,7 +1143,7 @@ void processProgram(void) {
     // Ejecutar siguiente línea
     sprintf(outputBuffer, "Ejecutando linea %d: %s\r\n", currentExecutingLine + 1, gcodeProgram[currentExecutingLine]);
     sendUSBText(outputBuffer);
-    memset(outputBuffer, 0, sizeof(outputBuffer));
+    
     
     // Crear una copia temporal para evitar recursión
     char temp_command[MAX_LINE_LENGTH];
@@ -1201,7 +1162,7 @@ void processProgram(void) {
         // Error en la ejecución
         sprintf(outputBuffer, "error: codigo %d en linea %d\r\n", status, currentExecutingLine + 1);
         sendUSBText(outputBuffer);
-        memset(outputBuffer, 0, sizeof(outputBuffer));
+        
         isProgramRunning = false;
     }
 }
@@ -1220,10 +1181,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     lastInterruptTime = currentTime;
     
     // Definir tolerancia en pasos (1mm para cada eje)
-    const int32_t TOLERANCE_X = 1 * STEPS_PER_MM_X;  // 1mm en pasos
-    const int32_t TOLERANCE_Y = 1 * STEPS_PER_MM_Y;  // 1mm en pasos  
-    const int32_t TOLERANCE_Z = 1 * STEPS_PER_MM_Z;  // 1mm en pasos
-    
+    const int32_t TOLERANCE_X = 2 * STEPS_PER_MM_X;  // 2mm en pasos
+    const int32_t TOLERANCE_Y = 2 * STEPS_PER_MM_Y;  // 2mm en pasos
+    const int32_t TOLERANCE_Z = 2 * STEPS_PER_MM_Z;  // 2mm en pasos
+
     switch(GPIO_Pin) {
         case GPIO_PIN_12: // X_MIN_PIN
             // Solo activar error si está a más de 1mm del home (posición 0)

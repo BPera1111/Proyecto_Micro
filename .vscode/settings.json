@@ -2,6 +2,7 @@
     "files.associations": {
         "*.rmd": "markdown",
         "*.m": "matlab",
-        "config.h": "c"
+        "config.h": "c",
+        "usbd_cdc_if.h": "c"
     }
 }
