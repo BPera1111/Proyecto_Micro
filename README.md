@@ -166,5 +166,5 @@ En `main.c`, línea 44:
 
 ---
 
-**Autor:** BPera1111  
+**Autores:** BPera1111 y lautoping  
 **Fecha:** Julio 2025
