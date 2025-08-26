@@ -163,6 +163,7 @@ En `main.c`, línea 44:
 - [ ] Homing automático
 - [ ] Control de velocidad variable
 - [ ] Sistema de coordenadas robusto
+- [ ] UART con ESP32
 
 ---
 
